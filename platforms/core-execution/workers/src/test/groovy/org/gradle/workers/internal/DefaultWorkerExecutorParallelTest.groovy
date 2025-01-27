@@ -28,6 +28,7 @@ import org.gradle.internal.reflect.Instantiator
 import org.gradle.internal.work.AsyncWorkTracker
 import org.gradle.internal.work.ConditionalExecutionQueue
 import org.gradle.internal.work.WorkerThreadRegistry
+import org.gradle.process.internal.EffectiveJavaForkOptions
 import org.gradle.process.internal.JavaForkOptionsFactory
 import org.gradle.process.internal.JavaForkOptionsInternal
 import org.gradle.process.internal.worker.child.WorkerDirectoryProvider
@@ -73,7 +74,7 @@ class DefaultWorkerExecutorParallelTest extends ConcurrentSpec {
         _ * instantiator.newInstance(DefaultClassLoaderWorkerSpec) >> { args -> new DefaultClassLoaderWorkerSpec(objectFactory) }
         _ * instantiator.newInstance(DefaultProcessWorkerSpec, _) >> { args -> new DefaultProcessWorkerSpec(args[1][0], objectFactory) }
         _ * instantiator.newInstance(DefaultWorkerExecutor.DefaultWorkQueue, _, _, _) >> { args -> new DefaultWorkerExecutor.DefaultWorkQueue(args[1][0], args[1][1], args[1][2]) }
-        _ * classpathTransformer.transform(_, _) >> { args -> args[0] }
+        _ * classpathTransformer.copyingTransform(_) >> { args -> args[0] }
         _ * projectCacheDir.getDir() >> temporaryFolder
         workerExecutor = new DefaultWorkerExecutor(workerDaemonFactory, workerInProcessFactory, workerNoIsolationFactory, forkOptionsFactory, workerThreadRegistry, buildOperationRunner, asyncWorkerTracker, workerDirectoryProvider, executionQueueFactory, classLoaderStructureProvider, actionExecutionSpecFactory, instantiator, classpathTransformer, temporaryFolder, projectCacheDir)
         _ * actionExecutionSpecFactory.newIsolatedSpec(_, _, _, _, _) >> Mock(IsolatedParametersActionExecutionSpec)
@@ -157,8 +158,8 @@ class DefaultWorkerExecutorParallelTest extends ConcurrentSpec {
         }
 
         @Override
-        JavaForkOptionsInternal immutableCopy(JavaForkOptionsInternal options) {
-            return delegate.immutableCopy(options)
+        EffectiveJavaForkOptions toEffectiveJavaForkOptions(JavaForkOptionsInternal options) {
+            return delegate.toEffectiveJavaForkOptions(options)
         }
     }
 }

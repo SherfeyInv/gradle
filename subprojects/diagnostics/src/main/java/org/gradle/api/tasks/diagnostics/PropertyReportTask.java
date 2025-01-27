@@ -26,6 +26,8 @@ import org.gradle.api.tasks.diagnostics.internal.PropertyReportRenderer;
 import org.gradle.api.tasks.diagnostics.internal.ReportRenderer;
 import org.gradle.api.tasks.options.Option;
 import org.gradle.internal.Pair;
+import org.gradle.internal.instrumentation.api.annotations.ToBeReplacedByLazyProperty;
+import org.gradle.internal.scan.UsedByScanPlugin;
 import org.gradle.work.DisableCachingByDefault;
 
 import javax.annotation.Nullable;
@@ -38,6 +40,7 @@ import java.util.TreeMap;
  * Displays the properties of a project. An instance of this type is used when you execute the {@code properties} task
  * from the command-line.
  */
+@UsedByScanPlugin("We use the class name to filter the console log to avoid showing secrets")
 @DisableCachingByDefault(because = "Not worth caching")
 public abstract class PropertyReportTask extends AbstractProjectBasedReportTask<PropertyReportTask.PropertyReportModel> {
 
@@ -59,6 +62,7 @@ public abstract class PropertyReportTask extends AbstractProjectBasedReportTask<
 
     @Internal
     @Override
+    @ToBeReplacedByLazyProperty
     public ReportRenderer getRenderer() {
         return renderer;
     }

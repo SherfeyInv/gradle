@@ -40,7 +40,7 @@ import java.util.List;
 
 @IntegrationTest
 @Category(IntegrationTest.class)
-public abstract class AbstractIntegrationTest {
+public abstract class AbstractIntegrationTest implements HasGradleExecutor {
 
     @Rule
     public final PreconditionVerifier preconditionVerifier = new PreconditionVerifier();
@@ -53,6 +53,9 @@ public abstract class AbstractIntegrationTest {
 
     @Rule
     public final ToBeFixedForConfigurationCacheRule toBeFixedForConfigurationCache = new ToBeFixedForConfigurationCacheRule();
+
+    @Rule
+    public final ToBeFixedForIsolatedProjectsRule toBeFixedForIsolatedProjects = new ToBeFixedForIsolatedProjectsRule();
 
     public final GradleDistribution distribution = new UnderDevelopmentGradleDistribution(getBuildContext());
     public final GradleContextualExecuter executer = createExecuter();
@@ -80,7 +83,8 @@ public abstract class AbstractIntegrationTest {
         return distribution;
     }
 
-    protected GradleExecuter getExecuter() {
+    @Override
+    public GradleExecuter getExecuter() {
         return executer;
     }
 

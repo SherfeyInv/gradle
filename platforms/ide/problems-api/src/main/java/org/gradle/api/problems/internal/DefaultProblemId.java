@@ -19,9 +19,10 @@ package org.gradle.api.problems.internal;
 import org.gradle.api.problems.ProblemGroup;
 import org.gradle.api.problems.ProblemId;
 
+import javax.annotation.Nullable;
 import java.io.Serializable;
 
-public class DefaultProblemId implements ProblemId, Serializable {
+public class DefaultProblemId extends ProblemId implements Serializable {
 
     private final String id;
     private final String displayName;
@@ -49,6 +50,19 @@ public class DefaultProblemId implements ProblemId, Serializable {
     }
 
     @Override
+    public String toString() {
+        return groupPath(getGroup()) + getName();
+    }
+
+    static String groupPath(@Nullable ProblemGroup group) {
+        if (group == null) {
+            return "";
+        }
+        ProblemGroup parent = group.getParent();
+        return groupPath(parent) + group.getName() + ":";
+    }
+
+    @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;
@@ -69,6 +83,9 @@ public class DefaultProblemId implements ProblemId, Serializable {
     public int hashCode() {
         int result = id.hashCode();
         result = 31 * result + parent.hashCode();
+        if (displayName != null) {
+            result = 31 * result + displayName.hashCode();
+        }
         return result;
     }
 }

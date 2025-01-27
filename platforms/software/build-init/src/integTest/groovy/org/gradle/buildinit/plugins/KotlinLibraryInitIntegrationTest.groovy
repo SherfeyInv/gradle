@@ -16,8 +16,11 @@
 
 package org.gradle.buildinit.plugins
 
+import org.gradle.api.JavaVersion
 import org.gradle.buildinit.plugins.fixtures.ScriptDslFixture
 import org.gradle.test.fixtures.file.LeaksFileHandles
+import org.gradle.test.precondition.Requires
+import org.gradle.test.preconditions.UnitTestPreconditions
 
 import static org.gradle.buildinit.plugins.internal.modifiers.BuildInitDsl.KOTLIN
 import static org.hamcrest.CoreMatchers.containsString
@@ -36,11 +39,12 @@ class KotlinLibraryInitIntegrationTest extends AbstractJvmLibraryInitIntegration
         dslFixtureFor(KOTLIN).assertGradleFilesGenerated()
     }
 
+    @Requires(value = UnitTestPreconditions.KotlinSupportedJdk.class)
     def "creates sample source if no source present with #scriptDsl build scripts"() {
         def dslFixture = dslFixtureFor(scriptDsl)
 
         when:
-        run('init', '--type', 'kotlin-library', '--dsl', scriptDsl.id)
+        run('init', '--type', 'kotlin-library', '--dsl', scriptDsl.id, '--java-version', JavaVersion.current().majorVersion)
 
         then:
         subprojectDir.file("src/main/kotlin").assertHasDescendants(SAMPLE_LIBRARY_CLASS)
@@ -60,11 +64,12 @@ class KotlinLibraryInitIntegrationTest extends AbstractJvmLibraryInitIntegration
         scriptDsl << ScriptDslFixture.SCRIPT_DSLS
     }
 
+    @Requires(value = UnitTestPreconditions.KotlinSupportedJdk.class)
     def "creates build using test suites with #scriptDsl build scripts when using --incubating"() {
         def dslFixture = dslFixtureFor(scriptDsl)
 
         when:
-        run ('init', '--type', 'kotlin-library', '--dsl', scriptDsl.id, '--incubating')
+        run ('init', '--type', 'kotlin-library', '--dsl', scriptDsl.id, '--incubating', '--java-version', JavaVersion.current().majorVersion)
 
         then:
         subprojectDir.file("src/main/kotlin").assertHasDescendants(SAMPLE_LIBRARY_CLASS)
@@ -83,12 +88,17 @@ class KotlinLibraryInitIntegrationTest extends AbstractJvmLibraryInitIntegration
         scriptDsl << ScriptDslFixture.SCRIPT_DSLS
     }
 
+    @Requires(value = UnitTestPreconditions.KotlinSupportedJdk.class)
     def "creates with gradle.properties when using #scriptDsl build scripts with --incubating"() {
         when:
-        run ('init', '--type', 'kotlin-library', '--dsl', scriptDsl.id, '--incubating')
+        run ('init', '--type', 'kotlin-library', '--dsl', scriptDsl.id, '--incubating', '--java-version', JavaVersion.current().majorVersion)
 
         then:
-        gradlePropertiesGenerated()
+        gradlePropertiesGenerated {
+            assertCachingEnabled()
+            assertParallelEnabled()
+            assertConfigurationCacheEnabled()
+        }
 
         when:
         succeeds('test')
@@ -100,9 +110,10 @@ class KotlinLibraryInitIntegrationTest extends AbstractJvmLibraryInitIntegration
         scriptDsl << ScriptDslFixture.SCRIPT_DSLS
     }
 
+    @Requires(value = UnitTestPreconditions.KotlinSupportedJdk.class)
     def "creates sample source with package and #scriptDsl build scripts"() {
         when:
-        run('init', '--type', 'kotlin-library', '--package', 'my.lib', '--dsl', scriptDsl.id)
+        run('init', '--type', 'kotlin-library', '--package', 'my.lib', '--dsl', scriptDsl.id, '--java-version', JavaVersion.current().majorVersion)
 
         then:
         subprojectDir.file("src/main/kotlin").assertHasDescendants("my/lib/Library.kt")
@@ -121,6 +132,7 @@ class KotlinLibraryInitIntegrationTest extends AbstractJvmLibraryInitIntegration
         scriptDsl << ScriptDslFixture.SCRIPT_DSLS
     }
 
+    @Requires(value = UnitTestPreconditions.KotlinSupportedJdk.class)
     def "source generation is skipped when kotlin sources detected with #scriptDsl build scripts"() {
         setup:
         subprojectDir.file("src/main/kotlin/org/acme/SampleMain.kt") << """
@@ -139,7 +151,7 @@ class KotlinLibraryInitIntegrationTest extends AbstractJvmLibraryInitIntegration
                     }
             """
         when:
-        run('init', '--type', 'kotlin-library', '--dsl', scriptDsl.id, '--overwrite')
+        run('init', '--type', 'kotlin-library', '--dsl', scriptDsl.id, '--overwrite', '--java-version', JavaVersion.current().majorVersion)
 
         then:
         subprojectDir.file("src/main/kotlin").assertHasDescendants("org/acme/SampleMain.kt")
@@ -156,9 +168,10 @@ class KotlinLibraryInitIntegrationTest extends AbstractJvmLibraryInitIntegration
         scriptDsl << ScriptDslFixture.SCRIPT_DSLS
     }
 
+    @Requires(value = UnitTestPreconditions.KotlinSupportedJdk.class)
     def "initializes Kotlin library with JUnit Jupiter test framework"() {
         when:
-        run('init', '--type', 'kotlin-library', '--test-framework', 'junit-jupiter')
+        run('init', '--type', 'kotlin-library', '--test-framework', 'junit-jupiter', '--java-version', JavaVersion.current().majorVersion)
 
         then:
         subprojectDir.file("build.gradle.kts").assertExists()
@@ -171,9 +184,5 @@ class KotlinLibraryInitIntegrationTest extends AbstractJvmLibraryInitIntegration
 
         then:
         assertTestPassed("org.example.LibraryTest", "someLibraryMethodReturnsTrue")
-
-        where:
-        scriptDsl << ScriptDslFixture.SCRIPT_DSLS
-
     }
 }

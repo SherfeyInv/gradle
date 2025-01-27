@@ -18,6 +18,7 @@ package org.gradle.api.tasks
 
 import org.gradle.integtests.fixtures.AbstractIntegrationSpec
 import org.gradle.integtests.fixtures.ToBeFixedForConfigurationCache
+import org.gradle.integtests.fixtures.ToBeFixedForIsolatedProjects
 import org.gradle.integtests.fixtures.executer.GradleContextualExecuter
 
 import static org.gradle.integtests.fixtures.ToBeFixedForConfigurationCache.Skip.INVESTIGATE
@@ -88,6 +89,7 @@ class DeleteTaskIntegrationTest extends AbstractIntegrationSpec {
         succeeds "clean"
     }
 
+    @ToBeFixedForIsolatedProjects(because = "subprojects, configure projects from root")
     def "clean build and build clean work reliably"() {
         settingsFile << "include 'a', 'b'"
         buildFile << """
@@ -144,6 +146,7 @@ class DeleteTaskIntegrationTest extends AbstractIntegrationSpec {
             assert(file("build.gradle.kts").exists())
         """
         when: "clean is executed"
+        executer.withArgument("--no-problems-report")
         succeeds "clean"
         then: "clean is marked as UP-TO-DATE"
         result.groupedOutput.task(":clean").outcome == "UP-TO-DATE"
@@ -156,12 +159,14 @@ class DeleteTaskIntegrationTest extends AbstractIntegrationSpec {
         }
 
         when: "clean is executed again without any changes"
+        executer.withArgument("--no-problems-report")
         succeeds "clean"
         then: "clean is still marked UP-TO-DATE"
         result.groupedOutput.task(":clean").outcome == "UP-TO-DATE"
 
         when: "the kotlin script compiler is invoked due to a script change"
         buildKotlinFile << "\n"
+        executer.withArgument("--no-problems-report")
         succeeds "clean"
         then: "clean is still marked as UP-TO-DATE"
         result.groupedOutput.task(":clean").outcome == "UP-TO-DATE"

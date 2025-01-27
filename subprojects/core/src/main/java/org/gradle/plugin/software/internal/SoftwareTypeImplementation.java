@@ -17,14 +17,25 @@
 package org.gradle.plugin.software.internal;
 
 import org.gradle.api.Plugin;
+import org.gradle.api.Project;
+import org.gradle.api.initialization.Settings;
 
 /**
  * Represents a resolved software type implementation including the public model type and the plugin that exposes it.
  */
-public interface SoftwareTypeImplementation {
+public interface SoftwareTypeImplementation<T> {
     String getSoftwareType();
 
-    Class<?> getModelPublicType();
+    Class<? extends T> getModelPublicType();
 
-    Class<? extends Plugin<?>> getPluginClass();
+    Class<? extends Plugin<Project>> getPluginClass();
+
+    Class<? extends Plugin<Settings>> getRegisteringPluginClass();
+
+    void addModelDefault(ModelDefault<?> modelDefault);
+
+    /**
+     * Visits all model defaults of the given type with the provided visitor.
+     */
+    <V extends ModelDefault.Visitor<?>> void visitModelDefaults(Class<? extends ModelDefault<V>> type, V visitor);
 }

@@ -21,17 +21,16 @@ import org.gradle.api.internal.changedetection.state.FileHasherStatistics;
 import org.gradle.api.internal.tasks.userinput.BuildScanUserInputHandler;
 import org.gradle.api.internal.tasks.userinput.DefaultBuildScanUserInputHandler;
 import org.gradle.api.internal.tasks.userinput.DefaultUserInputHandler;
-import org.gradle.api.internal.tasks.userinput.DefaultUserInputReader;
 import org.gradle.api.internal.tasks.userinput.NonInteractiveUserInputHandler;
 import org.gradle.api.internal.tasks.userinput.UserInputHandler;
 import org.gradle.api.internal.tasks.userinput.UserInputReader;
+import org.gradle.api.problems.internal.ExceptionProblemRegistry;
 import org.gradle.api.problems.internal.InternalProblems;
 import org.gradle.deployment.internal.DeploymentRegistryInternal;
 import org.gradle.execution.WorkValidationWarningReporter;
 import org.gradle.initialization.BuildCancellationToken;
 import org.gradle.initialization.BuildEventConsumer;
 import org.gradle.initialization.BuildRequestMetaData;
-import org.gradle.initialization.exception.ExceptionAnalyser;
 import org.gradle.initialization.layout.BuildLayout;
 import org.gradle.internal.build.BuildLayoutValidator;
 import org.gradle.internal.build.BuildStateRegistry;
@@ -45,13 +44,12 @@ import org.gradle.internal.buildtree.BuildTreeModelControllerServices;
 import org.gradle.internal.buildtree.InitDeprecationLoggingActionExecutor;
 import org.gradle.internal.buildtree.InitProblems;
 import org.gradle.internal.buildtree.ProblemReportingBuildActionRunner;
-import org.gradle.internal.classpath.CachedClasspathTransformer;
 import org.gradle.internal.concurrent.ExecutorFactory;
 import org.gradle.internal.enterprise.core.GradleEnterprisePluginManager;
 import org.gradle.internal.event.ListenerManager;
+import org.gradle.internal.exception.ExceptionAnalyser;
 import org.gradle.internal.execution.WorkInputListeners;
 import org.gradle.internal.file.StatStatistics;
-import org.gradle.internal.logging.LoggingManagerInternal;
 import org.gradle.internal.logging.sink.OutputEventListenerManager;
 import org.gradle.internal.logging.text.StyledTextOutputFactory;
 import org.gradle.internal.nativeintegration.filesystem.FileSystem;
@@ -60,10 +58,10 @@ import org.gradle.internal.operations.BuildOperationProgressEventEmitter;
 import org.gradle.internal.operations.BuildOperationRunner;
 import org.gradle.internal.operations.logging.LoggingBuildOperationProgressBroadcaster;
 import org.gradle.internal.operations.notify.BuildOperationNotificationValve;
+import org.gradle.internal.service.Provides;
 import org.gradle.internal.service.ServiceRegistration;
-import org.gradle.internal.service.ServiceRegistry;
-import org.gradle.internal.service.scopes.AbstractPluginServiceRegistry;
-import org.gradle.internal.service.scopes.GradleUserHomeScopeServiceRegistry;
+import org.gradle.internal.service.ServiceRegistrationProvider;
+import org.gradle.internal.service.scopes.AbstractGradleModuleServices;
 import org.gradle.internal.session.BuildSessionActionExecutor;
 import org.gradle.internal.snapshot.CaseSensitivity;
 import org.gradle.internal.snapshot.ValueSnapshotter;
@@ -74,7 +72,6 @@ import org.gradle.internal.watch.vfs.BuildLifecycleAwareVirtualFileSystem;
 import org.gradle.internal.watch.vfs.FileChangeListeners;
 import org.gradle.internal.work.WorkerLeaseService;
 import org.gradle.launcher.exec.BuildCompletionNotifyingBuildActionRunner;
-import org.gradle.launcher.exec.BuildExecutor;
 import org.gradle.launcher.exec.BuildOutcomeReportingBuildActionRunner;
 import org.gradle.launcher.exec.BuildTreeLifecycleBuildActionExecutor;
 import org.gradle.launcher.exec.ChainingBuildActionRunner;
@@ -85,28 +82,17 @@ import org.gradle.problems.buildtree.ProblemDiagnosticsFactory;
 import org.gradle.problems.buildtree.ProblemReporter;
 import org.gradle.problems.buildtree.ProblemStream;
 import org.gradle.tooling.internal.provider.continuous.ContinuousBuildActionExecutor;
-import org.gradle.tooling.internal.provider.serialization.ClassLoaderCache;
-import org.gradle.tooling.internal.provider.serialization.DaemonSidePayloadClassLoaderFactory;
-import org.gradle.tooling.internal.provider.serialization.DefaultPayloadClassLoaderRegistry;
-import org.gradle.tooling.internal.provider.serialization.ModelClassLoaderFactory;
-import org.gradle.tooling.internal.provider.serialization.PayloadClassLoaderFactory;
-import org.gradle.tooling.internal.provider.serialization.PayloadSerializer;
-import org.gradle.tooling.internal.provider.serialization.WellKnownClassLoaderRegistry;
 
 import java.util.List;
 
 import static org.gradle.internal.snapshot.CaseSensitivity.CASE_INSENSITIVE;
 import static org.gradle.internal.snapshot.CaseSensitivity.CASE_SENSITIVE;
 
-public class LauncherServices extends AbstractPluginServiceRegistry {
+public class LauncherServices extends AbstractGradleModuleServices {
     @Override
     public void registerGlobalServices(ServiceRegistration registration) {
+        registration.add(BuildActionRunner.class, ExecuteBuildActionRunner.class);
         registration.addProvider(new ToolingGlobalScopeServices());
-    }
-
-    @Override
-    public void registerGradleUserHomeServices(ServiceRegistration registration) {
-        registration.addProvider(new ToolingGradleUserHomeScopeServices());
     }
 
     @Override
@@ -119,52 +105,15 @@ public class LauncherServices extends AbstractPluginServiceRegistry {
         registration.addProvider(new ToolingBuildTreeScopeServices());
     }
 
-    static class ToolingGlobalScopeServices {
-        void configure(ServiceRegistration registration) {
-            registration.add(UserInputReader.class, DefaultUserInputReader.class);
-            registration.add(BuildActionRunner.class, ExecuteBuildActionRunner.class);
-            registration.add(ClassLoaderCache.class, ClassLoaderCache.class);
-        }
-
-        BuildExecutor createBuildExecuter(
-            LoggingManagerInternal loggingManager,
-            BuildLoggerFactory buildLoggerFactory,
-            GradleUserHomeScopeServiceRegistry userHomeServiceRegistry,
-            ServiceRegistry globalServices
-        ) {
-            // @formatter:off
-            return
-                new SetupLoggingActionExecutor(loggingManager,
-                new SessionFailureReportingActionExecuter(buildLoggerFactory,
-                new StartParamsValidatingActionExecuter(
-                new BuildSessionLifecycleBuildActionExecuter(userHomeServiceRegistry, globalServices
-                ))));
-            // @formatter:on
-        }
-
+    static class ToolingGlobalScopeServices implements ServiceRegistrationProvider {
+        @Provides
         BuildLoggerFactory createBuildLoggerFactory(StyledTextOutputFactory styledTextOutputFactory, WorkValidationWarningReporter workValidationWarningReporter) {
             return new BuildLoggerFactory(styledTextOutputFactory, workValidationWarningReporter, Time.clock(), null);
         }
     }
 
-    static class ToolingGradleUserHomeScopeServices {
-        PayloadClassLoaderFactory createClassLoaderFactory(CachedClasspathTransformer cachedClasspathTransformer) {
-            return new DaemonSidePayloadClassLoaderFactory(
-                new ModelClassLoaderFactory(),
-                cachedClasspathTransformer);
-        }
-
-        PayloadSerializer createPayloadSerializer(ClassLoaderCache classLoaderCache, PayloadClassLoaderFactory classLoaderFactory) {
-            return new PayloadSerializer(
-                new WellKnownClassLoaderRegistry(
-                    new DefaultPayloadClassLoaderRegistry(
-                        classLoaderCache,
-                        classLoaderFactory))
-            );
-        }
-    }
-
-    static class ToolingBuildSessionScopeServices {
+    static class ToolingBuildSessionScopeServices implements ServiceRegistrationProvider {
+        @Provides
         BuildSessionActionExecutor createActionExecutor(
             BuildEventListenerFactory listenerFactory,
             ExecutorFactory executorFactory,
@@ -187,7 +136,8 @@ public class LauncherServices extends AbstractPluginServiceRegistry {
             BuildLayoutValidator buildLayoutValidator,
             FileSystem fileSystem,
             BuildLifecycleAwareVirtualFileSystem virtualFileSystem,
-            ValueSnapshotter valueSnapshotter
+            ValueSnapshotter valueSnapshotter,
+            ExceptionProblemRegistry problemContainer
         ) {
             CaseSensitivity caseSensitivity = fileSystem.isCaseSensitive() ? CASE_SENSITIVE : CASE_INSENSITIVE;
             return new SubscribableBuildActionExecutor(
@@ -214,9 +164,11 @@ public class LauncherServices extends AbstractPluginServiceRegistry {
                             new BuildTreeLifecycleBuildActionExecutor(buildModelServices, buildLayoutValidator, valueSnapshotter),
                             buildOperationRunner,
                             loggingBuildOperationProgressBroadcaster,
-                            buildOperationNotificationValve))));
+                            buildOperationNotificationValve,
+                            problemContainer))));
         }
 
+        @Provides
         UserInputHandler createUserInputHandler(BuildRequestMetaData requestMetaData, OutputEventListenerManager outputEventListenerManager, Clock clock, UserInputReader inputReader) {
             if (!requestMetaData.isInteractive()) {
                 return new NonInteractiveUserInputHandler();
@@ -225,17 +177,20 @@ public class LauncherServices extends AbstractPluginServiceRegistry {
             return new DefaultUserInputHandler(outputEventListenerManager.getBroadcaster(), clock, inputReader);
         }
 
+        @Provides
         BuildScanUserInputHandler createBuildScanUserInputHandler(UserInputHandler userInputHandler) {
             return new DefaultBuildScanUserInputHandler(userInputHandler);
         }
 
     }
 
-    static class ToolingBuildTreeScopeServices {
-
-        ProblemStream createProblemStream(StartParameter parameter, ProblemDiagnosticsFactory diagnosticsFactory){
-            return  parameter.getWarningMode().shouldDisplayMessages()? diagnosticsFactory.newUnlimitedStream() : diagnosticsFactory.newStream();
+    static class ToolingBuildTreeScopeServices implements ServiceRegistrationProvider {
+        @Provides
+        ProblemStream createProblemStream(StartParameter parameter, ProblemDiagnosticsFactory diagnosticsFactory) {
+            return parameter.getWarningMode().shouldDisplayMessages() ? diagnosticsFactory.newUnlimitedStream() : diagnosticsFactory.newStream();
         }
+
+        @Provides
         BuildTreeActionExecutor createActionExecutor(
             List<BuildActionRunner> buildActionRunners,
             StyledTextOutputFactory styledTextOutputFactory,
@@ -256,10 +211,10 @@ public class LauncherServices extends AbstractPluginServiceRegistry {
             List<ProblemReporter> problemReporters,
             BuildLoggerFactory buildLoggerFactory,
             InternalOptions options,
-            ProblemDiagnosticsFactory problemDiagnosticsFactory,
             StartParameter startParameter,
             InternalProblems problemsService,
-            ProblemStream problemStream
+            ProblemStream problemStream,
+            ExceptionProblemRegistry registry
         ) {
             return new InitProblems(
                 new InitDeprecationLoggingActionExecutor(
@@ -285,10 +240,11 @@ public class LauncherServices extends AbstractPluginServiceRegistry {
                                     ),
                                     buildStartedTime,
                                     buildRequestMetaData,
-                                    buildLoggerFactory),
+                                    buildLoggerFactory,
+                                    registry
+                                ),
                                 options),
                             gradleEnterprisePluginManager)),
-                    problemDiagnosticsFactory,
                     eventEmitter,
                     startParameter,
                     problemsService,
@@ -296,6 +252,7 @@ public class LauncherServices extends AbstractPluginServiceRegistry {
                 problemsService);
         }
 
+        @Provides
         BuildLoggerFactory createBuildLoggerFactory(StyledTextOutputFactory styledTextOutputFactory, WorkValidationWarningReporter workValidationWarningReporter, Clock clock, GradleEnterprisePluginManager gradleEnterprisePluginManager) {
             return new BuildLoggerFactory(styledTextOutputFactory, workValidationWarningReporter, clock, gradleEnterprisePluginManager);
         }

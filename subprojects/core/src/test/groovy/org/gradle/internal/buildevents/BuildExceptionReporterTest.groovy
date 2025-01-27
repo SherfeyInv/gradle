@@ -53,8 +53,7 @@ class BuildExceptionReporterTest extends Specification {
     static final String LOCATION = "<location>"
     static final String STACKTRACE = "{info}> {normal}Run with {userinput}--stacktrace{normal} option to get the stack trace."
     static final String INFO_OR_DEBUG = "{info}> {normal}Run with {userinput}--info{normal} or {userinput}--debug{normal} option to get more log output."
-    static final String INFO = "{info}> {normal}Run with {userinput}--info{normal} option to get more log output."
-    static final String SCAN = "{info}> {normal}Run with {userinput}--scan{normal} to get full insights."
+    static final String TRY_SCAN = "{info}> {normal}Run with {userinput}--scan{normal} to get full insights."
     static final String GET_HELP = "{info}> {normal}Get more help at {userinput}https://help.gradle.org{normal}."
 
 
@@ -83,7 +82,7 @@ $MESSAGE
 * Try:
 $STACKTRACE
 $INFO_OR_DEBUG
-$SCAN
+$TRY_SCAN
 $GET_HELP
 """
     }
@@ -156,7 +155,7 @@ org.gradle.api.GradleException (no error message)
 * Try:
 $STACKTRACE
 $INFO_OR_DEBUG
-$SCAN
+$TRY_SCAN
 $GET_HELP
 """
     }
@@ -179,7 +178,7 @@ $MESSAGE
 * Try:
 $STACKTRACE
 $INFO_OR_DEBUG
-$SCAN
+$TRY_SCAN
 $GET_HELP
 """
     }
@@ -202,7 +201,7 @@ java.io.IOException
 * Try:
 $STACKTRACE
 $INFO_OR_DEBUG
-$SCAN
+$TRY_SCAN
 $GET_HELP
 """
     }
@@ -226,7 +225,7 @@ $MESSAGE
 * Try:
 $STACKTRACE
 $INFO_OR_DEBUG
-$SCAN
+$TRY_SCAN
 $GET_HELP
 """
     }
@@ -255,7 +254,7 @@ $MESSAGE
 * Try:
 $STACKTRACE
 $INFO_OR_DEBUG
-$SCAN
+$TRY_SCAN
 $GET_HELP
 """
     }
@@ -278,7 +277,7 @@ $MESSAGE
 * Try:
 $STACKTRACE
 $INFO_OR_DEBUG
-$SCAN
+$TRY_SCAN
 $GET_HELP
 """
     }
@@ -302,7 +301,7 @@ $MESSAGE
 
 * Try:
 $INFO_OR_DEBUG
-$SCAN
+$TRY_SCAN
 $GET_HELP
 
 * Exception is:
@@ -334,7 +333,7 @@ Execution failed for null.
 {info}> {normal}org.gradle.internal.buildevents.TestNonGradleCauseException (no error message)
 
 * Try:
-$SCAN
+$TRY_SCAN
 ==============================================================================
 
 {failure}2: {normal}{failure}Task failed with an exception.{normal}
@@ -347,8 +346,7 @@ Execution failed for null.
 {info}> {normal}org.gradle.internal.buildevents.TestCompilationFailureException (no error message)
 
 * Try:
-$INFO
-$SCAN
+$TRY_SCAN
 ==============================================================================
 
 {failure}3: {normal}{failure}Task failed with an exception.{normal}
@@ -359,7 +357,7 @@ $SCAN
 * Try:
 $STACKTRACE
 $INFO_OR_DEBUG
-$SCAN
+$TRY_SCAN
 $GET_HELP
 ==============================================================================
 """;
@@ -380,7 +378,7 @@ $MESSAGE
 
 * Try:
 $INFO_OR_DEBUG
-$SCAN
+$TRY_SCAN
 $GET_HELP
 
 * Exception is:
@@ -404,7 +402,7 @@ $MESSAGE
 
 * Try:
 $INFO_OR_DEBUG
-$SCAN
+$TRY_SCAN
 $GET_HELP
 
 * Exception is:
@@ -417,8 +415,8 @@ org.gradle.api.GradleException: $MESSAGE
         def exception = new TestException() {
             @Override
             void appendResolutions(FailureResolutionAware.Context context) {
-                context.appendResolution { output -> output.append("resolution 1.")}
-                context.appendResolution { output -> output.append("resolution 2.")}
+                context.appendResolution { output -> output.append("resolution 1.") }
+                context.appendResolution { output -> output.append("resolution 2.") }
             }
         }
 
@@ -435,7 +433,7 @@ $MESSAGE
 {info}> {normal}resolution 2.
 $STACKTRACE
 $INFO_OR_DEBUG
-$SCAN
+$TRY_SCAN
 $GET_HELP
 """
     }
@@ -445,7 +443,7 @@ $GET_HELP
             @Override
             void appendResolutions(FailureResolutionAware.Context context) {
                 context.doNotSuggestResolutionsThatRequireBuildDefinition()
-                context.appendResolution { output -> output.append("resolution 1.")}
+                context.appendResolution { output -> output.append("resolution 1.") }
             }
         }
 
@@ -489,7 +487,7 @@ Could not resolve all task dependencies for org:example:1.0.
 * Try:
 $STACKTRACE
 $INFO_OR_DEBUG
-$SCAN
+$TRY_SCAN
 $GET_HELP
 """
     }
@@ -519,7 +517,7 @@ Could not resolve all task dependencies for org:example:1.0.
 * Try:
 $STACKTRACE
 $INFO_OR_DEBUG
-$SCAN
+$TRY_SCAN
 $GET_HELP
 """
     }
@@ -551,7 +549,7 @@ Could not resolve all task dependencies for org:example:1.0.
 * Try:
 $STACKTRACE
 $INFO_OR_DEBUG
-$SCAN
+$TRY_SCAN
 $GET_HELP
 """
     }
@@ -590,12 +588,11 @@ Could not resolve all task dependencies for org:example:1.0.
 * Try:
 $STACKTRACE
 $INFO_OR_DEBUG
-$SCAN
+$TRY_SCAN
 $GET_HELP
 """
     }
     // endregion Duplicate Exception Branch Filtering
-
     def result(Throwable failure) {
         BuildResult result = Mock()
         result.failure >> failure

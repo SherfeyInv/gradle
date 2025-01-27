@@ -16,17 +16,23 @@
 
 package org.gradle.api.problems.internal
 
+import org.gradle.api.problems.AdditionalData
+import org.gradle.api.problems.ProblemGroup
+import org.gradle.api.problems.ProblemId
 import org.gradle.api.problems.Severity
-import org.gradle.api.problems.SharedProblemGroup
 import org.gradle.internal.deprecation.Documentation
+import org.gradle.internal.operations.CurrentBuildOperationRef
 import org.gradle.internal.operations.OperationIdentifier
+import org.gradle.internal.reflect.Instantiator
+import org.gradle.tooling.internal.provider.serialization.PayloadSerializer
 import spock.lang.Specification
 
 class DefaultProblemTest extends Specification {
     def "unbound builder result is equal to original"() {
+        def additionalData = Mock(AdditionalData)
         def problem = createTestProblem(severity, additionalData)
+        def newProblem = toBuilder(problem).build()
 
-        def newProblem = problem.toBuilder().build()
         expect:
         newProblem.definition.id.name == problem.definition.id.name
         newProblem.definition.id.displayName == problem.definition.id.displayName
@@ -35,14 +41,16 @@ class DefaultProblemTest extends Specification {
         newProblem.additionalData == problem.additionalData
         newProblem.details == problem.details
         newProblem.exception == problem.exception
-        newProblem.locations == problem.locations
+        newProblem.originLocations == problem.originLocations
 
         newProblem == problem
 
         where:
-        severity         | additionalData
-        Severity.WARNING | [:]
-        Severity.ERROR   | [data1: "data2"]
+        severity << [Severity.WARNING, Severity.ERROR]
+    }
+
+    def InternalProblemBuilder toBuilder(DefaultProblem problem) {
+        problem.toBuilder(new AdditionalDataBuilderFactory(), Mock(Instantiator), Mock(PayloadSerializer))
     }
 
     def "unbound builder result with modified #changedAspect is not equal"() {
@@ -50,7 +58,7 @@ class DefaultProblemTest extends Specification {
 
 
         when:
-        def builder = problem.toBuilder()
+        def builder = toBuilder(problem)
         changeClosure.curry(builder).run()
         def newProblem = builder.build()
 
@@ -61,7 +69,6 @@ class DefaultProblemTest extends Specification {
         where:
         changedAspect | changeClosure
         "severity"    | { it.severity(Severity.WARNING) }
-        "additionalData" | { it.additionalData("asdf", "adsf") }
         "locations"   | { it.fileLocation("file") }
         "details"     | { it.details("details") }
     }
@@ -69,10 +76,10 @@ class DefaultProblemTest extends Specification {
 
     def "unbound builder result with a change and check report"() {
         given:
-        def emitter = Mock(ProblemEmitter)
-        def problemReporter = new DefaultProblemReporter(emitter, [], org.gradle.internal.operations.CurrentBuildOperationRef.instance())
-        def problem = createTestProblem(Severity.WARNING, [:])
-        def builder = problem.toBuilder()
+        def emitter = Mock(ProblemSummarizer)
+        def problemReporter = new DefaultProblemReporter(emitter, null, CurrentBuildOperationRef.instance(), new AdditionalDataBuilderFactory(), new ExceptionProblemRegistry(), null, Mock(Instantiator), Mock(PayloadSerializer))
+        def problem = createTestProblem(Severity.WARNING)
+        def builder = toBuilder(problem)
         def newProblem = builder
             .solution("solution")
             .build()
@@ -90,25 +97,27 @@ class DefaultProblemTest extends Specification {
         newProblem.additionalData == problem.additionalData
         newProblem.details == problem.details
         newProblem.exception == problem.exception
-        newProblem.locations == problem.locations
+        newProblem.originLocations == problem.originLocations
         newProblem.definition.severity == problem.definition.severity
         newProblem.solutions == ["solution"]
         newProblem.class == DefaultProblem
     }
 
-    private static createTestProblem(Severity severity = Severity.ERROR, Map<String, String> additionalData = [data1: "data2"]) {
+    private static createTestProblem(Severity severity = Severity.ERROR, AdditionalData additionalData = null) {
         new DefaultProblem(
             new DefaultProblemDefinition(
-                new DefaultProblemId('message', "displayName", SharedProblemGroup.generic()),
+                ProblemId.create('message', "displayName", ProblemGroup.create("generic", "Generic")),
                 severity,
                 Documentation.userManual('id'),
             ),
             null,
             [],
             [],
+            [],
             'description',
             new RuntimeException('cause'),
             additionalData
+
         )
     }
 
@@ -116,20 +125,23 @@ class DefaultProblemTest extends Specification {
         given:
         def problem = new DefaultProblem(
             new DefaultProblemDefinition(
-                new DefaultProblemId('message', "displayName", SharedProblemGroup.generic()),
+                ProblemId.create('message', "displayName", ProblemGroup.create("generic", "Generic")),
                 Severity.WARNING,
                 Documentation.userManual('id'),
             ),
             'contextual label',
             ['contextual solution'],
             [],
+            [],
             'description',
             new RuntimeException('cause'),
-            [:]
+            null
+
+
         )
 
         when:
-        def newProblem = problem.toBuilder().build()
+        def newProblem = toBuilder(problem).build()
 
         then:
         newProblem.class == DefaultProblem

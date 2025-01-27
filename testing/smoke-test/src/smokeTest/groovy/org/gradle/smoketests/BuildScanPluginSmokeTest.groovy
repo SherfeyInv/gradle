@@ -144,7 +144,15 @@ class BuildScanPluginSmokeTest extends AbstractSmokeTest {
         "3.17",
         "3.17.1",
         "3.17.2",
-        "3.17.3"
+        "3.17.3",
+        "3.17.4",
+        "3.17.5",
+        "3.17.6",
+        "3.18",
+        "3.18.1",
+        "3.18.2",
+        "3.19",
+        "3.19.1"
     ]
 
     // Current injection scripts support Develocity plugin 3.3 and above
@@ -386,6 +394,16 @@ class BuildScanPluginSmokeTest extends AbstractSmokeTest {
             .maybeExpectLegacyDeprecationWarningIf(FIRST_VERSION_UNDER_DEVELOCITY_BRAND <= versionNumber,
                 "WARNING: The following functionality has been deprecated and will be removed in the next major release of the Develocity Gradle plugin. Run with '-Ddevelocity.deprecation.captureOrigin=true' to see where the deprecated functionality is being used. " +
                     "For assistance with migration, see https://gradle.com/help/gradle-plugin-develocity-migration.")
+            .expectLegacyDeprecationWarningIf(FIRST_VERSION_UNDER_DEVELOCITY_BRAND <= versionNumber,
+                "- The deprecated \"gradleEnterprise.server\" API has been replaced by \"develocity.server\"")
+            .expectLegacyDeprecationWarningIf(FIRST_VERSION_UNDER_DEVELOCITY_BRAND <= versionNumber,
+                "- The deprecated \"gradleEnterprise.allowUntrustedServer\" API has been replaced by \"develocity.allowUntrustedServer\"")
+            .expectLegacyDeprecationWarningIf(FIRST_VERSION_UNDER_DEVELOCITY_BRAND <= versionNumber,
+                "- The deprecated \"gradleEnterprise.buildScan.uploadInBackground\" API has been replaced by \"develocity.buildScan.uploadInBackground\"")
+            .expectLegacyDeprecationWarningIf(FIRST_VERSION_UNDER_DEVELOCITY_BRAND <= versionNumber,
+                "- The deprecated \"gradleEnterprise.buildScan.value\" API has been replaced by \"develocity.buildScan.value\"")
+            .expectLegacyDeprecationWarningIf(FIRST_VERSION_UNDER_DEVELOCITY_BRAND <= versionNumber && ci == CI.TEAM_CITY,
+                "- The deprecated \"gradleEnterprise.buildScan.buildScanPublished\" API has been replaced by \"develocity.buildScan.buildScanPublished\"")
             .expectLegacyDeprecationWarningIf(FIRST_VERSION_SUPPORTING_CHECK_IN_SERVICE <= versionNumber && versionNumber < FIRST_VERSION_CALLING_BUILD_PATH,
                 "Gradle Enterprise plugin $pluginVersion has been deprecated. " +
                     "Starting with Gradle 9.0, only Gradle Enterprise plugin 3.13.1 or newer is supported. " +
@@ -396,6 +414,11 @@ class BuildScanPluginSmokeTest extends AbstractSmokeTest {
                     "This is scheduled to be removed in Gradle 9.0. " +
                     "Use getBuildPath() to get a unique identifier for the build. " +
                     "Consult the upgrading guide for further information: https://docs.gradle.org/${GradleVersion.current().version}/userguide/upgrading_version_8.html#build_identifier_name_and_current_deprecation"
+            ).expectLegacyDeprecationWarning(
+            "Space-assignment syntax in Groovy DSL has been deprecated. " +
+                "This is scheduled to be removed in Gradle 10.0. " +
+                "Use assignment ('url = <value>') instead. " +
+                "Consult the upgrading guide for further information: https://docs.gradle.org/${GradleVersion.current().version}/userguide/upgrading_version_8.html#groovy_space_assignment_syntax"
             )
             .build().output.contains("Build scan written to")
 
@@ -413,8 +436,8 @@ class BuildScanPluginSmokeTest extends AbstractSmokeTest {
     }
 
     SmokeTestGradleRunner scanRunner(String... args) {
-        // Run with --build-cache to test also build-cache events
-        runner("build", "-Dscan.dump", "--build-cache", *args).forwardOutput()
+        // Run with --build-cache to test also build cache events
+        runner("build", "-Dscan.dump", "--build-cache", *args)
     }
 
     void usePluginVersion(String version) {

@@ -17,11 +17,14 @@ package org.gradle.api.file;
 
 import groovy.lang.Closure;
 import groovy.lang.DelegatesTo;
+import groovy.transform.stc.ClosureParams;
+import groovy.transform.stc.SimpleType;
 import org.gradle.api.Action;
 import org.gradle.api.Transformer;
 import org.gradle.api.specs.Spec;
 import org.gradle.api.tasks.util.PatternFilterable;
 import org.gradle.internal.HasInternalProtocol;
+import org.gradle.internal.instrumentation.api.annotations.ToBeReplacedByLazyProperty;
 
 import java.io.FilterReader;
 import java.util.Map;
@@ -92,6 +95,7 @@ public interface CopySpec extends CopySourceSpec, CopyProcessingSpec, PatternFil
      *
      * @return true for case-sensitive matching.
      */
+    @ToBeReplacedByLazyProperty
     boolean isCaseSensitive();
 
     /**
@@ -106,6 +110,7 @@ public interface CopySpec extends CopySourceSpec, CopyProcessingSpec, PatternFil
      *
      * @return <code>true</code> if empty target directories will be included in the copy, <code>false</code> otherwise
      */
+    @ToBeReplacedByLazyProperty
     boolean getIncludeEmptyDirs();
 
     /**
@@ -125,6 +130,7 @@ public interface CopySpec extends CopySourceSpec, CopyProcessingSpec, PatternFil
      * @return the strategy to use for files included by this copy spec.
      * @see DuplicatesStrategy
      */
+    @ToBeReplacedByLazyProperty
     DuplicatesStrategy getDuplicatesStrategy();
 
     /**
@@ -208,7 +214,10 @@ public interface CopySpec extends CopySourceSpec, CopyProcessingSpec, PatternFil
      * {@inheritDoc}
      */
     @Override
-    CopySpec from(Object sourcePath, @DelegatesTo(CopySpec.class) Closure c);
+    CopySpec from(Object sourcePath,
+                  @DelegatesTo(CopySpec.class)
+                  @ClosureParams(value = SimpleType.class, options = "org.gradle.api.file.CopySpec")
+                  Closure c);
 
     /**
      * {@inheritDoc}
@@ -405,6 +414,7 @@ public interface CopySpec extends CopySourceSpec, CopyProcessingSpec, PatternFil
      * @return the charset used to read and write files when filtering
      * @since 2.14
      */
+    @ToBeReplacedByLazyProperty
     String getFilteringCharset();
 
     /**

@@ -66,7 +66,7 @@ public class DefaultPluginManager implements PluginManagerInternal {
 
     private final BuildOperationRunner buildOperationRunner;
     private final UserCodeApplicationContext userCodeApplicationContext;
-    private DomainObjectCollectionFactory domainObjectCollectionFactory;
+    private final DomainObjectCollectionFactory domainObjectCollectionFactory;
 
     public DefaultPluginManager(final PluginRegistry pluginRegistry, Instantiator instantiator, final PluginTarget target, BuildOperationRunner buildOperationRunner, UserCodeApplicationContext userCodeApplicationContext, CollectionCallbackActionDecorator callbackDecorator, DomainObjectCollectionFactory domainObjectCollectionFactory) {
         this.instantiator = instantiator;

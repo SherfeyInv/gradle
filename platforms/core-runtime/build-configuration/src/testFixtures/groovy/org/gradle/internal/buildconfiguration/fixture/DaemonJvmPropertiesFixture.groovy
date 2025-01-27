@@ -45,13 +45,23 @@ trait DaemonJvmPropertiesFixture {
     void assertJvmCriteria(JavaVersion version, String vendor = null, String implementation = null) {
         Map<String, String> properties = daemonJvmPropertiesFile.properties
         assert properties.get(DaemonJvmPropertiesDefaults.TOOLCHAIN_VERSION_PROPERTY) == version.majorVersion
-        assert properties.get(DaemonJvmPropertiesDefaults.TOOLCHAIN_VENDOR_PROPERTY) == vendor
+        if (vendor) {
+            assert vendor.equalsIgnoreCase(properties.get(DaemonJvmPropertiesDefaults.TOOLCHAIN_VENDOR_PROPERTY))
+        }
         assert properties.get(DaemonJvmPropertiesDefaults.TOOLCHAIN_IMPLEMENTATION_PROPERTY) == implementation
+    }
+
+    void assertToolchainDownloadUrlsProperties(Map<List<String>, String> platformToolchainUrl) {
+        Map<String, String> properties = daemonJvmPropertiesFile.properties
+        platformToolchainUrl.forEach { platform, url ->
+            def toolchainUrlProperty = String.format(DaemonJvmPropertiesDefaults.TOOLCHAIN_URL_PROPERTY_FORMAT, platform[0], platform[1])
+            assert properties.get(toolchainUrlProperty) == url
+        }
     }
 
     void writeJvmCriteria(Jvm jvm) {
         def otherMetadata = AvailableJavaHomes.getJvmInstallationMetadata(jvm)
-        writeJvmCriteria(jvm.javaVersion, otherMetadata.vendor.knownVendor.name())
+        writeJvmCriteria(jvm.javaVersion, otherMetadata.vendor.rawVendor)
     }
 
     void writeJvmCriteria(JavaVersion version, String vendor = null, String implementation = null) {

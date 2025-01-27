@@ -33,11 +33,13 @@ import org.gradle.initialization.JdkToolsInitializer;
 import org.gradle.internal.hash.FileHasher;
 import org.gradle.internal.hash.StreamHasher;
 import org.gradle.internal.operations.BuildOperationExecutor;
+import org.gradle.internal.service.Provides;
 import org.gradle.internal.service.ServiceRegistration;
-import org.gradle.internal.service.scopes.AbstractPluginServiceRegistry;
+import org.gradle.internal.service.ServiceRegistrationProvider;
+import org.gradle.internal.service.scopes.AbstractGradleModuleServices;
 import org.gradle.internal.vfs.FileSystemAccess;
 
-public class CompileServices extends AbstractPluginServiceRegistry {
+public class CompileServices extends AbstractGradleModuleServices {
     @Override
     public void registerBuildServices(ServiceRegistration registration) {
         registration.addProvider(new BuildScopeCompileServices());
@@ -48,21 +50,27 @@ public class CompileServices extends AbstractPluginServiceRegistry {
         registration.addProvider(new UserHomeScopeServices());
     }
 
-    private static class BuildScopeCompileServices {
+    private static class BuildScopeCompileServices implements ServiceRegistrationProvider {
+        @Provides
+        @SuppressWarnings("UnusedVariable")
+            //registration
         void configure(ServiceRegistration registration, JdkToolsInitializer initializer) {
             // Hackery
             initializer.initializeJdkTools();
         }
 
+        @Provides
         public IncrementalCompilerFactory createIncrementalCompilerFactory(BuildOperationExecutor buildOperationExecutor, StringInterner interner, ClassSetAnalyzer classSetAnalyzer) {
             return new IncrementalCompilerFactory(buildOperationExecutor, interner, classSetAnalyzer);
         }
 
-        CachingClassDependenciesAnalyzer createClassAnalyzer(StringInterner interner, GeneralCompileCaches cache) {
+        @Provides
+        ClassDependenciesAnalyzer createClassAnalyzer(StringInterner interner, GeneralCompileCaches cache) {
             return new CachingClassDependenciesAnalyzer(new DefaultClassDependenciesAnalyzer(interner), cache.getClassAnalysisCache());
         }
 
-        CachingClassSetAnalyzer createClassSetAnalyzer(FileHasher fileHasher, StreamHasher streamHasher, ClassDependenciesAnalyzer classAnalyzer,
+        @Provides
+        ClassSetAnalyzer createClassSetAnalyzer(FileHasher fileHasher, StreamHasher streamHasher, ClassDependenciesAnalyzer classAnalyzer,
                                                        FileOperations fileOperations, FileSystemAccess fileSystemAccess, GeneralCompileCaches cache) {
             return new CachingClassSetAnalyzer(
                 new DefaultClassSetAnalyzer(fileHasher, streamHasher, classAnalyzer, fileOperations),
@@ -72,8 +80,9 @@ public class CompileServices extends AbstractPluginServiceRegistry {
         }
     }
 
-    private static class UserHomeScopeServices {
-        UserHomeScopedCompileCaches createCompileCaches(GlobalScopedCacheBuilderFactory cacheBuilderFactory, InMemoryCacheDecoratorFactory inMemoryCacheDecoratorFactory, StringInterner interner) {
+    private static class UserHomeScopeServices implements ServiceRegistrationProvider {
+        @Provides
+        GeneralCompileCaches createCompileCaches(GlobalScopedCacheBuilderFactory cacheBuilderFactory, InMemoryCacheDecoratorFactory inMemoryCacheDecoratorFactory, StringInterner interner) {
             return new UserHomeScopedCompileCaches(cacheBuilderFactory, inMemoryCacheDecoratorFactory, interner);
         }
     }

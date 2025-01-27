@@ -25,9 +25,9 @@ import javax.annotation.Nullable;
 public interface TypeAwareProblemBuilder extends InternalProblemSpec {
     TypeAwareProblemBuilder withAnnotationType(@Nullable Class<?> classWithAnnotationAttached);
 
-    TypeAwareProblemBuilder typeIsIrrelevantInErrorMessage();
-
     TypeAwareProblemBuilder forProperty(String propertyName);
+
+    TypeAwareProblemBuilder forFunction(String methodName);
 
     TypeAwareProblemBuilder parentProperty(@Nullable String parentProperty);
 }

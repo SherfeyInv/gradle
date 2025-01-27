@@ -20,13 +20,11 @@ import org.gradle.integtests.fixtures.AbstractIntegrationSpec
 import spock.lang.Issue
 
 class TaskReportTaskIntegrationTest extends AbstractIntegrationSpec {
-
     private final static String[] TASKS_REPORT_TASK = ['tasks'] as String[]
     private final static String[] TASKS_DETAILED_REPORT_TASK = TASKS_REPORT_TASK + ['--all'] as String[]
     private final static String GROUP = 'Hello world'
     private final static String GROUP_1 = 'Group 1'
     private final static String GROUP_2 = 'Group 2'
-    private final static String TASKS_GROUPS_REPORT_TASK = TASKS_REPORT_TASK + ['--groups', GROUP_1]
 
     def "always renders default tasks running #tasks"() {
         given:
@@ -46,6 +44,7 @@ wrapper - Generates Gradle wrapper files.
 
 Help tasks
 ----------
+artifactTransforms - Displays the Artifact Transforms that can be executed in root project '$projectName'.
 buildEnvironment - Displays all buildscript dependencies declared in root project '$projectName'.
 dependencies - Displays all dependencies declared in root project '$projectName'.
 dependencyInsight - Displays the insight into a specific dependency in root project '$projectName'.
@@ -79,6 +78,7 @@ wrapper (org.gradle.api.tasks.wrapper.Wrapper) - Generates Gradle wrapper files.
 
 Help tasks
 ----------
+artifactTransforms (org.gradle.api.tasks.diagnostics.ArtifactTransformsReportTask) - Displays the Artifact Transforms that can be executed in root project '$projectName'.
 buildEnvironment (org.gradle.api.tasks.diagnostics.BuildEnvironmentReportTask) - Displays all buildscript dependencies declared in root project '$projectName'.
 dependencies (org.gradle.api.tasks.diagnostics.DependencyReportTask) - Displays all dependencies declared in root project '$projectName'.
 dependencyInsight (org.gradle.api.tasks.diagnostics.DependencyInsightReportTask) - Displays the insight into a specific dependency in root project '$projectName'.
@@ -460,7 +460,7 @@ alpha - ALPHA_in_sub1
 
     def "task report includes tasks defined via model rules running #tasks"() {
         when:
-        buildScript """
+        buildFile """
             model {
                 tasks {
                     create('a') {
@@ -489,7 +489,7 @@ alpha - ALPHA_in_sub1
 
     def "task report includes tasks with dependencies defined via model rules running #tasks"() {
         when:
-        buildScript """
+        buildFile """
             model {
                 tasks {
                     create('a')
@@ -517,7 +517,7 @@ b
 
     def "task report includes task container rule based tasks defined via model rule"() {
         when:
-        buildScript """
+        buildFile """
             tasks.addRule("Pattern: containerRule<ID>") { taskName ->
                 if (taskName.startsWith("containerRule")) {
                     task(taskName) {
@@ -567,7 +567,7 @@ b
     def "renders tasks with dependencies created by model rules running #tasks"() {
         when:
         settingsFile << "rootProject.name = 'test-project'"
-        buildScript """
+        buildFile """
             model {
                 tasks {
                     create('a')

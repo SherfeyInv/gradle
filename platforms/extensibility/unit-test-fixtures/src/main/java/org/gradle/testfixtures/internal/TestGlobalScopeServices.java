@@ -18,14 +18,15 @@ package org.gradle.testfixtures.internal;
 import org.gradle.cache.FileLockManager;
 import org.gradle.cache.internal.CacheFactory;
 import org.gradle.internal.Factory;
-import org.gradle.internal.agents.AgentStatus;
 import org.gradle.internal.concurrent.ExecutorFactory;
+import org.gradle.internal.instrumentation.agent.AgentStatus;
 import org.gradle.internal.logging.LoggingManagerInternal;
 import org.gradle.internal.operations.BuildOperationListenerManager;
 import org.gradle.internal.operations.BuildOperationProgressEventEmitter;
 import org.gradle.internal.operations.BuildOperationRunner;
 import org.gradle.internal.operations.CurrentBuildOperationRef;
 import org.gradle.internal.operations.NoOpBuildOperationProgressEventEmitter;
+import org.gradle.internal.service.Provides;
 import org.gradle.internal.service.scopes.GlobalScopeServices;
 import org.gradle.internal.time.Clock;
 
@@ -34,15 +35,18 @@ public class TestGlobalScopeServices extends GlobalScopeServices {
         super(false, AgentStatus.disabled());
     }
 
+    @Provides
     @Override
     protected CacheFactory createCacheFactory(FileLockManager fileLockManager, ExecutorFactory executorFactory, BuildOperationRunner buildOperationRunner) {
         return new TestInMemoryCacheFactory();
     }
 
+    @Provides
     LoggingManagerInternal createLoggingManager(Factory<LoggingManagerInternal> loggingManagerFactory) {
         return loggingManagerFactory.create();
     }
 
+    @Provides
     @Override
     protected BuildOperationProgressEventEmitter createBuildOperationProgressEventEmitter(
         Clock clock,

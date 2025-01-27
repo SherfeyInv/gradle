@@ -17,26 +17,30 @@
 package org.gradle.internal.declarativedsl.project
 
 import org.gradle.internal.declarativedsl.analysis.analyzeEverything
-import org.gradle.internal.declarativedsl.evaluationSchema.EvaluationSchema
-import org.gradle.internal.declarativedsl.evaluationSchema.InterpretationSequence
-import org.gradle.internal.declarativedsl.evaluationSchema.SimpleInterpretationSequenceStep
-import org.gradle.internal.declarativedsl.evaluationSchema.buildEvaluationSchema
-import org.gradle.internal.declarativedsl.evaluationSchema.plus
+import org.gradle.internal.declarativedsl.common.dependencyCollectors
+import org.gradle.internal.declarativedsl.common.gradleDslGeneralSchema
+import org.gradle.internal.declarativedsl.evaluationSchema.DefaultInterpretationSequence
+import org.gradle.internal.declarativedsl.evaluationSchema.buildEvaluationAndConversionSchema
+import org.gradle.internal.declarativedsl.evaluationSchema.ifConversionSupported
+import org.gradle.internal.declarativedsl.evaluator.conversion.EvaluationAndConversionSchema
+import org.gradle.internal.declarativedsl.software.softwareTypesComponent
 import org.gradle.plugin.software.internal.SoftwareTypeRegistry
 
 
 internal
 fun projectInterpretationSequence(
     softwareTypeRegistry: SoftwareTypeRegistry
-) = InterpretationSequence(listOf(SimpleInterpretationSequenceStep("project") { projectEvaluationSchema(softwareTypeRegistry) }))
+) = DefaultInterpretationSequence(listOf(projectInterpretationSequenceStep(softwareTypeRegistry)))
 
 
 fun projectEvaluationSchema(
-    softwareTypeRegistry: SoftwareTypeRegistry
-): EvaluationSchema {
-    val component = gradleDslGeneralSchemaComponent() +
-        SoftwareTypeComponent(ProjectTopLevelReceiver::class, "softwareType", softwareTypeRegistry) +
-        DependencyCollectorsComponent()
-
-    return buildEvaluationSchema(ProjectTopLevelReceiver::class, component, analyzeEverything)
+    softwareTypeRegistry: SoftwareTypeRegistry,
+): EvaluationAndConversionSchema {
+    return buildEvaluationAndConversionSchema(ProjectTopLevelReceiver::class, analyzeEverything) {
+        gradleDslGeneralSchema()
+        dependencyCollectors()
+        ifConversionSupported {
+            softwareTypesComponent(ProjectTopLevelReceiver::class, softwareTypeRegistry, withDefaultsApplication = true)
+        }
+    }
 }

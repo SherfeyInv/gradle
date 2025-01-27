@@ -84,7 +84,7 @@ public class BuildEnvironmentConfigurationConverter {
         StartParameterInternal startParameter = new StartParameterInternal();
         startParameterConverter.convert(args, buildLayout, properties, startParameter);
 
-        DaemonParameters daemonParameters = new DaemonParameters(buildLayout, fileCollectionFactory, properties.getRequestedSystemProperties());
+        DaemonParameters daemonParameters = new DaemonParameters(buildLayout.getGradleUserHomeDir(), fileCollectionFactory, properties.getRequestedSystemProperties());
         daemonParametersConverter.convert(args, properties.getProperties(), daemonParameters);
 
         // This is a workaround to maintain existing behavior that allowed
@@ -93,7 +93,7 @@ public class BuildEnvironmentConfigurationConverter {
         gradlePropertiesAsSeenByToolchains.putAll(properties.getProperties());
         gradlePropertiesAsSeenByToolchains.putAll(startParameter.getProjectProperties());
         toolchainConfigurationBuildOptionBackedConverter.convert(args, gradlePropertiesAsSeenByToolchains, daemonParameters.getToolchainConfiguration());
-        daemonParameters.setRequestedJvmCriteria(properties.getDaemonJvmProperties());
+        daemonParameters.setRequestedJvmCriteriaFromMap(properties.getDaemonJvmProperties());
 
         return new Parameters(startParameter, daemonParameters, properties);
     }

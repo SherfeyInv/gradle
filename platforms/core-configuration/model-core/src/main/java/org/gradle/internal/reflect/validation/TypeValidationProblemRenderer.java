@@ -16,7 +16,7 @@
 package org.gradle.internal.reflect.validation;
 
 import org.gradle.api.internal.DocumentationRegistry;
-import org.gradle.api.problems.internal.Problem;
+import org.gradle.api.problems.internal.InternalProblem;
 import org.gradle.internal.logging.text.TreeFormatter;
 
 import java.util.ArrayList;
@@ -29,15 +29,15 @@ import static org.gradle.util.internal.TextUtil.endLineWithDot;
 
 public class TypeValidationProblemRenderer {
 
-    public static String renderMinimalInformationAbout(Problem problem) {
+    public static String renderMinimalInformationAbout(InternalProblem problem) {
         return renderMinimalInformationAbout(problem, true);
     }
 
-    public static String renderMinimalInformationAbout(Problem problem, boolean renderDocLink) {
+    public static String renderMinimalInformationAbout(InternalProblem problem, boolean renderDocLink) {
         return renderMinimalInformationAbout(problem, renderDocLink, true);
     }
 
-    public static String renderMinimalInformationAbout(Problem problem, boolean renderDocLink, boolean renderSolutions) {
+    public static String renderMinimalInformationAbout(InternalProblem problem, boolean renderDocLink, boolean renderSolutions) {
         TreeFormatter formatter = new TreeFormatter();
         formatter.node(endLineWithDot(Optional.ofNullable(problem.getContextualLabel()).orElseGet(() -> problem.getDefinition().getId().getDisplayName())));
         ofNullable(problem.getDetails()).ifPresent(reason -> {
@@ -84,13 +84,5 @@ public class TypeValidationProblemRenderer {
             .replaceAll("[.]+", ".")
             .replaceAll("[ ]+", " ")
             .replaceAll(": ?[. ]", ": ");
-    }
-
-    // A heuristic to determine if the type is relevant or not.
-    // The "DefaultTask" type may appear in error messages
-    // (if using "adhoc" tasks) but isn't visible to this
-    // class so we have to rely on text matching for now.
-    private static boolean shouldRenderType(String className) {
-        return !"org.gradle.api.DefaultTask".equals(className);
     }
 }

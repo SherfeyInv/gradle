@@ -1,5 +1,6 @@
 package org.gradle.internal.declarativedsl.objectGraph
 
+import org.gradle.declarative.dsl.evaluation.OperationGenerationId
 import org.gradle.internal.declarativedsl.analysis.AssignmentMethod
 import org.gradle.internal.declarativedsl.analysis.ObjectOrigin
 import org.gradle.internal.declarativedsl.analysis.PropertyReferenceResolution
@@ -9,10 +10,15 @@ import org.gradle.internal.declarativedsl.objectGraph.AssignmentResolver.Express
 
 class AssignmentResolver {
     private
-    val assignmentByNode = mutableMapOf<ResolutionNode.Property, ResolutionNode>()
+    val assignmentByNode = mutableMapOf<ResolutionNode.Property, GenerationResolutionNode>()
 
     private
     val assignmentMethodByProperty = mutableMapOf<ResolutionNode.Property, AssignmentMethod>()
+
+    data class GenerationResolutionNode(
+        val generationId: OperationGenerationId,
+        val node: ResolutionNode
+    )
 
     sealed interface AssignmentAdditionResult {
         data class AssignmentAdded(
@@ -33,7 +39,8 @@ class AssignmentResolver {
         ) : AssignmentAdditionResult
     }
 
-    fun addAssignment(lhsProperty: PropertyReferenceResolution, rhsOrigin: ObjectOrigin, assignmentMethod: AssignmentMethod): AssignmentAdditionResult =
+    @Suppress("NestedBlockDepth")
+    fun addAssignment(lhsProperty: PropertyReferenceResolution, rhsOrigin: ObjectOrigin, assignmentMethod: AssignmentMethod, generationId: OperationGenerationId): AssignmentAdditionResult =
         when (val lhsOwner = resolveToObjectOrPropertyReference(lhsProperty.receiverObject)) {
             is UnresolvedReceiver -> {
                 AssignmentAdditionResult.UnresolvedValueUsedInLhs(lhsOwner.accessOrigin)
@@ -43,7 +50,7 @@ class AssignmentResolver {
                 val lhsPropertyWithResolvedReceiver = PropertyReferenceResolution(lhsOwner.objectOrigin, lhsProperty.property)
                 val lhsNode = ResolutionNode.Property(lhsPropertyWithResolvedReceiver)
 
-                if (lhsNode in assignmentByNode) {
+                if (lhsNode in assignmentByNode && hasAssignmentInTheSameGeneration(assignmentByNode.getValue(lhsNode), generationId)) {
                     AssignmentAdditionResult.Reassignment(lhsPropertyWithResolvedReceiver)
                 } else when (val rhsResult = resolveToObjectOrPropertyReference(rhsOrigin)) {
                     is Ok -> {
@@ -53,9 +60,16 @@ class AssignmentResolver {
 
                             else -> ResolutionNode.PrimitiveValue(rhs)
                         }
-                        assignmentByNode[lhsNode] = rhsNode
-                        assignmentMethodByProperty[lhsNode] = assignmentMethod
-                        AssignmentAdditionResult.AssignmentAdded(lhsNode.propertyReferenceResolution, assignmentMethod)
+
+                        if (lhsNode !in assignmentByNode || hasAssignmentInLowerGeneration(assignmentByNode.getValue(lhsNode), generationId)) {
+                            assignmentByNode[lhsNode] = GenerationResolutionNode(generationId, rhsNode)
+                            assignmentMethodByProperty[lhsNode] = assignmentMethod
+                            AssignmentAdditionResult.AssignmentAdded(lhsNode.propertyReferenceResolution, assignmentMethod)
+                        } else {
+                            // We should never come across a situation where an assignment already exists that is in a higher generation,
+                            // but if we do, just pull the emergency stop handle as this is indicative of a bug rather than a user error.
+                            error("unexpected assignment in higher generation")
+                        }
                     }
 
                     // TODO: lazy semantics for properties
@@ -64,13 +78,23 @@ class AssignmentResolver {
             }
         }
 
+    private
+    fun hasAssignmentInTheSameGeneration(existingNode: GenerationResolutionNode, generationId: OperationGenerationId): Boolean {
+        return existingNode.generationId == generationId
+    }
+
+    private
+    fun hasAssignmentInLowerGeneration(existingNode: GenerationResolutionNode, generationId: OperationGenerationId): Boolean {
+        return existingNode.generationId < generationId
+    }
+
     sealed interface AssignmentResolutionResult {
         data class Assigned(val objectOrigin: ObjectOrigin, val assignmentMethod: AssignmentMethod) : AssignmentResolutionResult
         data class Unassigned(val property: PropertyReferenceResolution) : AssignmentResolutionResult
     }
 
     fun getAssignmentResults(): Map<PropertyReferenceResolution, AssignmentResolutionResult> {
-        val dsu = (assignmentByNode.keys + assignmentByNode.values).associateWithTo(mutableMapOf()) { it }
+        val dsu = (assignmentByNode.keys + assignmentByNode.values.map { it.node }).associateWithTo(mutableMapOf()) { it }
 
         fun get(node: ResolutionNode): ResolutionNode = when (val value = dsu.getValue(node)) {
             node -> node
@@ -82,7 +106,7 @@ class AssignmentResolver {
         }
 
         assignmentByNode.forEach { (key, value) ->
-            union(key, value)
+            union(key, value.node)
         }
 
         return buildMap {
@@ -105,6 +129,7 @@ class AssignmentResolver {
         data class UnresolvedReceiver(val accessOrigin: ObjectOrigin) : ExpressionResolutionProgress
     }
 
+    @Suppress("NestedBlockDepth")
     fun resolveToObjectOrPropertyReference(objectOrigin: ObjectOrigin): ExpressionResolutionProgress =
         when (objectOrigin) {
             is ObjectOrigin.DelegatingObjectOrigin -> resolveToObjectOrPropertyReference(objectOrigin.delegate)
@@ -118,7 +143,7 @@ class AssignmentResolver {
                         val refNode =
                             ResolutionNode.Property(PropertyReferenceResolution(receiverOrigin, objectOrigin.property))
 
-                        val receiverAssigned = assignmentByNode[refNode]
+                        val receiverAssigned = assignmentByNode[refNode]?.node
                         if (receiverAssigned != null) {
                             Ok(receiverAssigned.toOrigin(objectOrigin))
                         } else {
@@ -142,6 +167,7 @@ class AssignmentResolver {
 
             is ObjectOrigin.NewObjectFromTopLevelFunction,
             is ObjectOrigin.ConstantOrigin,
+            is ObjectOrigin.EnumConstantOrigin,
             is ObjectOrigin.External,
             is ObjectOrigin.NullObjectOrigin,
             is ObjectOrigin.PropertyDefaultValue, // TODO: is it so?

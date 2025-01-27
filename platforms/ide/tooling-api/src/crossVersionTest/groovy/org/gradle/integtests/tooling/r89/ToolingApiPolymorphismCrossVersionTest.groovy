@@ -16,8 +16,6 @@
 
 package org.gradle.integtests.tooling.r89
 
-import org.gradle.api.Plugin
-import org.gradle.api.Project
 import org.gradle.integtests.tooling.fixture.CompositeModel
 import org.gradle.integtests.tooling.fixture.DeepChildModel
 import org.gradle.integtests.tooling.fixture.ShallowChildModel
@@ -26,10 +24,7 @@ import org.gradle.integtests.tooling.fixture.TargetGradleVersion
 import org.gradle.integtests.tooling.fixture.ToolingApiSpecification
 import org.gradle.integtests.tooling.fixture.ToolingApiVersion
 import org.gradle.integtests.tooling.fixture.BaseModel
-import org.gradle.tooling.provider.model.ToolingModelBuilder
-import org.gradle.tooling.provider.model.ToolingModelBuilderRegistry
-
-import javax.inject.Inject
+import org.gradle.integtests.tooling.fixture.VeryDeepChildModel
 
 @ToolingApiVersion(">=8.9")
 @TargetGradleVersion('>=6.4') // that's when support for precompiled script plugins in Groovy has been added (used in this test)
@@ -64,13 +59,17 @@ class ToolingApiPolymorphismCrossVersionTest extends ToolingApiSpecification {
                 String getDeepMessage()
             }
 
+            interface VeryDeepChildModel extends DeepChildModel {
+                String getVeryDeepMessage()
+            }
+
             interface SideModel extends BaseModel {
             }
 
             abstract class AbstractModel implements DeepChildModel {
             }
 
-            class DefaultModel extends AbstractModel implements ShallowChildModel, SideModel, java.io.Serializable {
+            class DefaultModel extends AbstractModel implements ShallowChildModel, DeepChildModel, VeryDeepChildModel, SideModel, java.io.Serializable {
 
                 private final String message
 
@@ -81,6 +80,9 @@ class ToolingApiPolymorphismCrossVersionTest extends ToolingApiSpecification {
 
                 @Override
                 String getDeepMessage() { "deep " + message }
+
+                @Override
+                String getVeryDeepMessage() { "very deep " + message }
 
                 @Override
                 String toString() { message }
@@ -99,8 +101,8 @@ class ToolingApiPolymorphismCrossVersionTest extends ToolingApiSpecification {
         file("plugins/src/main/groovy/my/MyModelBuilder.groovy") << """
             package my
 
-            import ${ToolingModelBuilder.name}
-            import ${Project.name}
+            import org.gradle.tooling.provider.model.ToolingModelBuilder
+            import org.gradle.api.Project
 
             class MyModelBuilder implements ToolingModelBuilder {
                 boolean canBuild(String modelName) {
@@ -137,8 +139,8 @@ class ToolingApiPolymorphismCrossVersionTest extends ToolingApiSpecification {
         file("plugins/src/main/groovy/my/MyModelBuilder.groovy") << """
             package my
 
-            import ${ToolingModelBuilder.name}
-            import ${Project.name}
+            import org.gradle.tooling.provider.model.ToolingModelBuilder
+            import org.gradle.api.Project
 
             import org.gradle.integtests.tooling.fixture.DefaultCompositeModel
             import org.gradle.integtests.tooling.fixture.DefaultModel
@@ -177,10 +179,10 @@ class ToolingApiPolymorphismCrossVersionTest extends ToolingApiSpecification {
         file("$targetBuildName/src/main/groovy/my/MyPlugin.groovy") << """
             package my
 
-            import ${Project.name}
-            import ${Plugin.name}
-            import ${Inject.name}
-            import ${ToolingModelBuilderRegistry.name}
+            import org.gradle.api.Project
+            import org.gradle.api.Plugin
+            import javax.inject.Inject
+            import org.gradle.tooling.provider.model.ToolingModelBuilderRegistry
 
             abstract class MyPlugin implements Plugin<Project> {
                 void apply(Project project) {
@@ -204,6 +206,9 @@ class ToolingApiPolymorphismCrossVersionTest extends ToolingApiSpecification {
 
         assert model instanceof DeepChildModel
         assert ((DeepChildModel) model).getDeepMessage() == "deep poly from 'root'"
+
+        assert model instanceof VeryDeepChildModel
+        assert ((VeryDeepChildModel) model).getVeryDeepMessage() == "very deep poly from 'root'"
 
         assert !(model instanceof SideModel)
     }

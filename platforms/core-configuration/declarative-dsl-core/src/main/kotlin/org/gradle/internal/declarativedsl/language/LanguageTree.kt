@@ -27,7 +27,7 @@ sealed interface DataStatement : LanguageTreeElement, BlockElement
 
 data class ErroneousStatement(val failingResult: FailingResult) : BlockElement {
     override val sourceData: SourceData
-        get() = error("Use failing result for source data")
+        get() = error("use failing result for source data")
 }
 
 
@@ -49,13 +49,13 @@ data class Import(val name: AccessChain, override val sourceData: SourceData) : 
 data class AccessChain(val nameParts: List<String>)
 
 
-data class PropertyAccess(val receiver: Expr?, val name: String, override val sourceData: SourceData) : Expr
+data class NamedReference(val receiver: Expr?, val name: String, override val sourceData: SourceData) : Expr
 
 
 data class FunctionCall(val receiver: Expr?, val name: String, val args: List<FunctionArgument>, override val sourceData: SourceData) : Expr
 
 
-data class Assignment(val lhs: PropertyAccess, val rhs: Expr, override val sourceData: SourceData) : DataStatement
+data class Assignment(val lhs: NamedReference, val rhs: Expr, override val sourceData: SourceData) : DataStatement
 
 
 data class LocalValue(val name: String, val rhs: Expr, override val sourceData: SourceData) : DataStatement

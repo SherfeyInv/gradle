@@ -24,6 +24,7 @@ import org.gradle.api.tasks.Console;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.diagnostics.internal.ProjectDetails;
 import org.gradle.api.tasks.options.Option;
+import org.gradle.internal.deprecation.DeprecationLogger;
 import org.gradle.internal.logging.text.StyledTextOutput;
 import org.gradle.internal.logging.text.StyledTextOutputFactory;
 import org.gradle.model.internal.core.ModelNode;
@@ -32,6 +33,7 @@ import org.gradle.model.internal.registry.ModelRegistry;
 import org.gradle.work.DisableCachingByDefault;
 
 import javax.inject.Inject;
+import java.util.Locale;
 
 /**
  * Displays some details about the configuration model of the project.
@@ -68,7 +70,7 @@ public abstract class ModelReport extends DefaultTask {
 
     @Option(option = "format", description = "Output format (full, short)")
     public void setFormat(String format) {
-        this.format = Format.valueOf(format.toUpperCase());
+        this.format = Format.valueOf(format.toUpperCase(Locale.ROOT));
     }
 
     @Console
@@ -88,6 +90,10 @@ public abstract class ModelReport extends DefaultTask {
 
     @TaskAction
     public void report() {
+        DeprecationLogger.whileDisabled(this::doReport);
+    }
+
+    private void doReport() {
         ProjectInternal project = (ProjectInternal) getProject();
         project.prepareForRuleBasedPlugins();
 

@@ -26,6 +26,7 @@ import org.gradle.api.file.ProjectLayout;
 import org.gradle.api.internal.tasks.userinput.NonInteractiveUserInputHandler;
 import org.gradle.api.internal.tasks.userinput.UserInputHandler;
 import org.gradle.api.internal.tasks.userinput.UserQuestions;
+import org.gradle.api.model.ObjectFactory;
 import org.gradle.api.provider.Property;
 import org.gradle.api.provider.ProviderFactory;
 import org.gradle.api.tasks.Input;
@@ -49,16 +50,25 @@ import org.gradle.buildinit.plugins.internal.modifiers.BuildInitTestFramework;
 import org.gradle.buildinit.plugins.internal.modifiers.ComponentType;
 import org.gradle.buildinit.plugins.internal.modifiers.Language;
 import org.gradle.buildinit.plugins.internal.modifiers.ModularizationOption;
+import org.gradle.buildinit.specs.BuildInitConfig;
+import org.gradle.buildinit.specs.BuildInitGenerator;
+import org.gradle.buildinit.specs.BuildInitParameter;
+import org.gradle.buildinit.specs.BuildInitSpec;
+import org.gradle.buildinit.specs.internal.BuildInitSpecRegistry;
+import org.gradle.internal.instrumentation.api.annotations.NotToBeReplacedByLazyProperty;
+import org.gradle.internal.instrumentation.api.annotations.ToBeReplacedByLazyProperty;
 import org.gradle.internal.logging.text.TreeFormatter;
 import org.gradle.jvm.toolchain.JavaLanguageVersion;
 import org.gradle.util.GradleVersion;
 import org.gradle.work.DisableCachingByDefault;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.lang.model.SourceVersion;
 import java.io.File;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,11 +81,10 @@ import static com.google.common.base.Strings.isNullOrEmpty;
  */
 @DisableCachingByDefault(because = "Not worth caching")
 public abstract class InitBuild extends DefaultTask {
-
     private static final String SOURCE_PACKAGE_DEFAULT = "org.example";
     private static final String SOURCE_PACKAGE_PROPERTY = "org.gradle.buildinit.source.package";
-    static final int MINIMUM_VERSION_SUPPORTED_BY_FOOJAY_API = 7;
-    static final int DEFAULT_JAVA_VERSION = 21;
+    private static final int MINIMUM_VERSION_SUPPORTED_BY_FOOJAY_API = 7;
+    private static final int DEFAULT_JAVA_VERSION = 21;
 
     private final Directory projectDir = getProject().getLayout().getProjectDirectory();
     private String type;
@@ -87,6 +96,7 @@ public abstract class InitBuild extends DefaultTask {
     private String packageName;
     private final Property<InsecureProtocolOption> insecureProtocol = getProject().getObjects().property(InsecureProtocolOption.class);
     private final Property<String> javaVersion = getProject().getObjects().property(String.class);
+
     @Internal
     private ProjectLayoutSetupRegistry projectLayoutRegistry;
 
@@ -130,6 +140,7 @@ public abstract class InitBuild extends DefaultTask {
      * Possible values for the option are provided by {@link #getAvailableBuildTypes()}.
      */
     @Input
+    @ToBeReplacedByLazyProperty
     public String getType() {
         return isNullOrEmpty(type) ? detectType() : type;
     }
@@ -158,6 +169,7 @@ public abstract class InitBuild extends DefaultTask {
      */
     @Optional
     @Input
+    @ToBeReplacedByLazyProperty
     public String getDsl() {
         return isNullOrEmpty(dsl) ? BuildInitDsl.KOTLIN.getId() : dsl;
     }
@@ -206,6 +218,7 @@ public abstract class InitBuild extends DefaultTask {
      * @since 5.0
      */
     @Input
+    @ToBeReplacedByLazyProperty
     public String getProjectName() {
         return projectName == null ? projectDir.getAsFile().getName() : projectName;
     }
@@ -218,6 +231,7 @@ public abstract class InitBuild extends DefaultTask {
      * @since 5.0
      */
     @Input
+    @ToBeReplacedByLazyProperty
     public String getPackageName() {
         return packageName == null ? "" : packageName;
     }
@@ -230,6 +244,7 @@ public abstract class InitBuild extends DefaultTask {
     @Nullable
     @Optional
     @Input
+    @ToBeReplacedByLazyProperty
     public String getTestFramework() {
         return testFramework;
     }
@@ -260,6 +275,7 @@ public abstract class InitBuild extends DefaultTask {
     @Option(option = "comments", description = "Include clarifying comments in files.")
     public abstract Property<Boolean> getComments();
 
+    @NotToBeReplacedByLazyProperty(because = "Injected service")
     public ProjectLayoutSetupRegistry getProjectLayoutRegistry() {
         if (projectLayoutRegistry == null) {
             projectLayoutRegistry = getServices().get(ProjectLayoutSetupRegistry.class);
@@ -271,6 +287,64 @@ public abstract class InitBuild extends DefaultTask {
     @TaskAction
     public void setupProjectLayout() {
         UserInputHandler inputHandler = getEffectiveInputHandler();
+        if (shouldUseInitProjectSpec(inputHandler)) {
+            doInitSpecProjectGeneration(inputHandler);
+        } else {
+            doStandardProjectGeneration(inputHandler);
+        }
+    }
+
+    private boolean shouldUseInitProjectSpec(UserInputHandler inputHandler) {
+        boolean templatesAvailable = !getBuildInitSpecRegistry().isEmpty();
+        return templatesAvailable && inputHandler.askUser(uq -> uq.askBooleanQuestion("Additional project types were loaded.  Do you want to generate a project using a contributed project specification?", true)).get();
+    }
+
+    private void doInitSpecProjectGeneration(UserInputHandler inputHandler) {
+        BuildInitConfig config = inputHandler.askUser(this::selectAndConfigureSpec).get();
+        BuildInitGenerator generator = createGenerator(config);
+        boolean userInterrupted = inputHandler.interrupted();
+        if (userInterrupted) {
+            throw new BuildCancelledException();
+        }
+        getLogger().lifecycle("Generate '{}'", config.getBuildSpec().getDisplayName());
+        generator.generate(config, projectDir);
+        generateWrapper();
+    }
+
+    private BuildInitConfig selectAndConfigureSpec(UserQuestions userQuestions) {
+        BuildInitSpecRegistry registry = getBuildInitSpecRegistry();
+
+        BuildInitSpec spec;
+        if (type == null) {
+            spec = userQuestions.choice("Select project type", registry.getAllSpecs())
+                .renderUsing(BuildInitSpec::getDisplayName)
+                .ask();
+        }  else {
+            spec = registry.getSpecByType(type);
+        }
+
+        // TODO: Ask questions for each parameter, and return a configuration object with populated arguments
+        return new BuildInitConfig() {
+            @Override
+            @Nonnull
+            public BuildInitSpec getBuildSpec() {
+                return spec;
+            }
+
+            @Override
+            @Nonnull
+            public Map<BuildInitParameter<?>, Object> getArguments() {
+                return Collections.emptyMap();
+            }
+        };
+    }
+
+    private BuildInitGenerator createGenerator(BuildInitConfig config) {
+        Class<? extends BuildInitGenerator> generator = getBuildInitSpecRegistry().getGeneratorForSpec(config.getBuildSpec());
+        return getObjectFactory().newInstance(generator);
+    }
+
+    private void doStandardProjectGeneration(UserInputHandler inputHandler) {
         GenerationSettings settings = inputHandler.askUser(this::calculateGenerationSettings).get();
 
         boolean userInterrupted = inputHandler.interrupted();
@@ -548,6 +622,7 @@ public abstract class InitBuild extends DefaultTask {
     }
 
     @OptionValues("type")
+    @ToBeReplacedByLazyProperty(comment = "Not yet supported", issue = "https://github.com/gradle/gradle/issues/29341")
     public List<String> getAvailableBuildTypes() {
         return getProjectLayoutRegistry().getAllTypes();
     }
@@ -568,6 +643,7 @@ public abstract class InitBuild extends DefaultTask {
      * @since 4.5
      */
     @OptionValues("dsl")
+    @ToBeReplacedByLazyProperty(comment = "Not yet supported", issue = "https://github.com/gradle/gradle/issues/29341")
     public List<String> getAvailableDSLs() {
         return BuildInitDsl.listSupported();
     }
@@ -584,6 +660,7 @@ public abstract class InitBuild extends DefaultTask {
      * Available test frameworks.
      */
     @OptionValues("test-framework")
+    @ToBeReplacedByLazyProperty(comment = "Not yet supported", issue = "https://github.com/gradle/gradle/issues/29341")
     public List<String> getAvailableTestFrameworks() {
         return BuildInitTestFramework.listSupported();
     }
@@ -629,4 +706,10 @@ public abstract class InitBuild extends DefaultTask {
 
     @Inject
     protected abstract ProjectLayout getLayout();
+
+    @Inject
+    protected abstract ObjectFactory getObjectFactory();
+
+    @Inject
+    protected abstract BuildInitSpecRegistry getBuildInitSpecRegistry();
 }

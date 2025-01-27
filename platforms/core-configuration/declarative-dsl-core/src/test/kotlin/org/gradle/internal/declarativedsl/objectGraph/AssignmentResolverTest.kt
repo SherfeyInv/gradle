@@ -20,12 +20,12 @@ import org.gradle.declarative.dsl.model.annotations.Restricted
 import org.gradle.internal.declarativedsl.demo.resolve
 import org.gradle.internal.declarativedsl.language.Literal
 import org.gradle.internal.declarativedsl.schemaBuilder.schemaFromTypes
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertIs
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.Test
+import org.gradle.internal.declarativedsl.assertIs
 
 
-object AssignmentResolverTest {
+class AssignmentResolverTest {
 
     @Test
     fun `reports and does not record reassignment`() {
@@ -39,7 +39,7 @@ object AssignmentResolverTest {
             """.trimIndent()
         )
 
-        val additionResults = resolution.assignments.map { impl.addAssignment(it.lhs, it.rhs, it.assignmentMethod) }
+        val additionResults = resolution.assignments.map { impl.addAssignment(it.lhs, it.rhs, it.assignmentMethod, it.operationId.generationId) }
         assertIs<AssignmentResolver.AssignmentAdditionResult.Reassignment>(additionResults[2])
 
         val resultMap = impl.getAssignmentResults()

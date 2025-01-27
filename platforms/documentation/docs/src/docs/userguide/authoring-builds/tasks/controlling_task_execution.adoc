@@ -1,4 +1,4 @@
-// Copyright (C) 2023 Gradle, Inc.
+// Copyright (C) 2024 Gradle, Inc.
 //
 // Licensed under the Creative Commons Attribution-Noncommercial-ShareAlike 4.0 International License.;
 // you may not use this file except in compliance with the License.
@@ -228,7 +228,7 @@ include::{snippetsPath}/tasks/mustRunAfter/tests/mustRunAfterSingleTask.out[]
 ----
 ====
 
-The “should run after” ordering rule will be ignored if it introduces an ordering cycle:
+The "should run after" ordering rule will be ignored if it introduces an ordering cycle:
 
 ====
 include::sample[dir="snippets/tasks/shouldRunAfterWithCycle/kotlin",files="build.gradle.kts[]"]
@@ -369,6 +369,39 @@ All of Gradle's built-in tasks respond to timeouts.
 include::sample[dir="snippets/tasks/timeout/kotlin",files="build.gradle.kts[tags=without-import]"]
 include::sample[dir="snippets/tasks/timeout/groovy",files="build.gradle[]"]
 ====
+
+[[sec:task_rules]]
+== Task rules
+
+Sometimes you want to have a task whose behavior depends on a large or infinite number value range of parameters.
+A very nice and expressive way to provide such tasks are task rules:
+
+====
+include::sample[dir="snippets/tasks/addRules/kotlin",files="build.gradle.kts[tags=task-rule]"]
+include::sample[dir="snippets/tasks/addRules/groovy",files="build.gradle[tags=task-rule]"]
+
+----
+$ gradle -q pingServer1
+include::{snippetsPath}/tasks/addRules/tests/taskRule.out[]
+----
+====
+
+The `String` parameter is used as a description for the rule, which is shown with `./gradlew tasks`.
+
+Rules are not only used when calling tasks from the command line.
+You can also create `dependsOn` relations on rule based tasks:
+
+====
+include::sample[dir="snippets/tasks/addRules/kotlin",files="build.gradle.kts[tags=all]"]
+include::sample[dir="snippets/tasks/addRules/groovy",files="build.gradle[tags=all]"]
+
+----
+$ gradle -q groupPing
+include::{snippetsPath}/tasks/addRules/tests/taskRuleDependsOn.out[]
+----
+====
+
+If you run `./gradlew -q tasks`, you won't find a task named `pingServer1` or `pingServer2`, but this script is executing logic based on the request to run those tasks.
 
 [[sec:exclude_task]]
 == Exclude tasks from execution

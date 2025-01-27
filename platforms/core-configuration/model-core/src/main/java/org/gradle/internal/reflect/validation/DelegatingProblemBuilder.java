@@ -16,12 +16,19 @@
 
 package org.gradle.internal.reflect.validation;
 
+import org.gradle.api.Action;
 import org.gradle.api.NonNullApi;
+import org.gradle.api.problems.AdditionalData;
+import org.gradle.api.problems.DocLink;
 import org.gradle.api.problems.ProblemGroup;
+import org.gradle.api.problems.ProblemId;
 import org.gradle.api.problems.Severity;
-import org.gradle.api.problems.internal.DocLink;
+import org.gradle.api.problems.internal.AdditionalDataBuilderFactory;
+import org.gradle.api.problems.internal.AdditionalDataSpec;
+import org.gradle.api.problems.internal.InternalProblem;
 import org.gradle.api.problems.internal.InternalProblemBuilder;
-import org.gradle.api.problems.internal.Problem;
+import org.gradle.internal.reflect.Instantiator;
+import org.gradle.tooling.internal.provider.serialization.PayloadSerializer;
 
 import javax.annotation.Nullable;
 
@@ -35,13 +42,13 @@ class DelegatingProblemBuilder implements InternalProblemBuilder {
     }
 
     @Override
-    public Problem build() {
+    public InternalProblem build() {
         return delegate.build();
     }
 
     @Override
-    public InternalProblemBuilder id(String name, String displayName) {
-        return validateDelegate(delegate).id(name, displayName);
+    public InternalProblemBuilder id(ProblemId problemId) {
+        return validateDelegate(delegate).id(problemId);
     }
 
     @Override
@@ -90,11 +97,6 @@ class DelegatingProblemBuilder implements InternalProblemBuilder {
     }
 
     @Override
-    public InternalProblemBuilder pluginLocation(String pluginId) {
-        return validateDelegate(delegate.pluginLocation(pluginId));
-    }
-
-    @Override
     public InternalProblemBuilder stackLocation() {
         return validateDelegate(delegate.stackLocation());
     }
@@ -115,18 +117,43 @@ class DelegatingProblemBuilder implements InternalProblemBuilder {
     }
 
     @Override
-    public InternalProblemBuilder additionalData(String key, Object value) {
-        return validateDelegate(delegate.additionalData(key, value));
+    public <U extends AdditionalDataSpec> InternalProblemBuilder additionalDataInternal(Class<? extends U> specType, Action<? super U> config) {
+        return validateDelegate(delegate.additionalDataInternal(specType, config));
     }
 
     @Override
-    public InternalProblemBuilder withException(RuntimeException e) {
-        return validateDelegate(delegate.withException(e));
+    public <T extends AdditionalData> InternalProblemBuilder additionalData(Class<T> type, Action<? super T> config) {
+        return validateDelegate(delegate.additionalData(type, config));
+    }
+
+    @Override
+    public <T extends AdditionalData> InternalProblemBuilder additionalDataInternal(T additionalDataInstance) {
+        return validateDelegate(delegate.additionalDataInternal(additionalDataInstance));
+    }
+
+    @Override
+    public InternalProblemBuilder withException(Throwable t) {
+        return validateDelegate(delegate.withException(t));
     }
 
     @Override
     public InternalProblemBuilder severity(Severity severity) {
         return validateDelegate(delegate.severity(severity));
+    }
+
+    @Override
+    public AdditionalDataBuilderFactory getAdditionalDataBuilderFactory() {
+        return delegate.getAdditionalDataBuilderFactory();
+    }
+
+    @Override
+    public Instantiator getInstantiator() {
+        return delegate.getInstantiator();
+    }
+
+    @Override
+    public PayloadSerializer getPayloadSerializer() {
+        return delegate.getPayloadSerializer();
     }
 
     private <T> T validateDelegate(T newDelegate) {

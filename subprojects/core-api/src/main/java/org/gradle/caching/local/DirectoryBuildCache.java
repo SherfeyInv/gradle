@@ -18,6 +18,7 @@ package org.gradle.caching.local;
 
 import org.gradle.caching.configuration.AbstractBuildCache;
 import org.gradle.internal.deprecation.DeprecationLogger;
+import org.gradle.internal.instrumentation.api.annotations.ToBeReplacedByLazyProperty;
 
 import javax.annotation.Nullable;
 
@@ -35,6 +36,7 @@ public abstract class DirectoryBuildCache extends AbstractBuildCache {
      * Returns the directory to use to store the build cache.
      */
     @Nullable
+    @ToBeReplacedByLazyProperty
     public Object getDirectory() {
         return directory;
     }
@@ -52,7 +54,7 @@ public abstract class DirectoryBuildCache extends AbstractBuildCache {
      * Returns the number of days after unused entries are garbage collected. Defaults to 7 days.
      *
      * @since 4.6
-     * @deprecated
+     * @deprecated this is superseded by <code>CacheConfigurations.buildCache.removeUnusedEntriesAfterDays</code>
      */
     @Deprecated
     public int getRemoveUnusedEntriesAfterDays() {
@@ -65,7 +67,7 @@ public abstract class DirectoryBuildCache extends AbstractBuildCache {
      * Must be greater than 1.
      *
      * @since 4.6
-     * @deprecated
+     * @deprecated this is superseded by <code>CacheConfigurations.buildCache.removeUnusedEntriesAfterDays</code>
      */
     @Deprecated
     public void setRemoveUnusedEntriesAfterDays(int removeUnusedEntriesAfterDays) {

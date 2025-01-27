@@ -17,6 +17,9 @@
 package org.gradle.smoketests
 
 import org.gradle.api.JavaVersion
+import org.gradle.integtests.fixtures.executer.GradleContextualExecuter
+import org.gradle.integtests.fixtures.versions.KotlinGradlePluginVersions
+import org.gradle.util.GradleVersion
 import org.gradle.util.internal.VersionNumber
 import spock.lang.Issue
 
@@ -57,9 +60,14 @@ class KotlinMultiplatformPluginSmokeTest extends AbstractKotlinPluginSmokeTest {
         when:
         def result = kgpRunner(false, kotlinVersionNumber, ':allTests', '-s')
             .expectDeprecationWarningIf(
-                kotlinVersionNumber >= VersionNumber.parse('1.9.22'),
+                kotlinVersionNumber >= VersionNumber.parse('1.9.22') && kotlinVersionNumber.baseVersion < KotlinGradlePluginVersions.KOTLIN_2_0_20,
                 "Internal API BuildOperationExecutor.getCurrentOperation() has been deprecated. This is scheduled to be removed in Gradle 9.0.",
                 "https://youtrack.jetbrains.com/issue/KT-67110"
+            )
+            .expectDeprecationWarningIf(
+                GradleContextualExecuter.notConfigCache,
+                "Invocation of Task.project at execution time has been deprecated. This will fail with an error in Gradle 10.0. This API is incompatible with the configuration cache, which will become the only mode supported by Gradle in a future release. Consult the upgrading guide for further information: https://docs.gradle.org/${GradleVersion.current().version}/userguide/upgrading_version_7.html#task_project",
+                "https://youtrack.jetbrains.com/issue/KT-72694"
             )
             .build()
 
@@ -71,8 +79,9 @@ class KotlinMultiplatformPluginSmokeTest extends AbstractKotlinPluginSmokeTest {
             def version = VersionNumber.parse(it)
             // versions prior to 1.7.0 use the removed 'void org.gradle.api.reporting.DirectoryReport.setEnabled(boolean)' method
             // 1.7.22 does not define implementation of the 'abstract void failure(java.lang.Object, org.gradle.api.tasks.testing.TestFailure)' of interface org.gradle.api.internal.tasks.testing.TestResultProcessor.
+            // 1.8.0 now has a nodeJs compatibility error
             // versions prior to 2.0.0 don't support java 21
-            version > VersionNumber.parse('1.7.22') &&
+            version > VersionNumber.parse('1.8.0') &&
                 (JavaVersion.current() < JavaVersion.VERSION_21 || version >= VersionNumber.parse('2.0.0-Beta1'))
         }
     }

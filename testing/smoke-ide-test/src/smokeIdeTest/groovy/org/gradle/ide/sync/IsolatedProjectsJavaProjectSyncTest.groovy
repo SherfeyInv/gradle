@@ -17,28 +17,21 @@
 package org.gradle.ide.sync
 
 import org.gradle.ide.sync.fixtures.IsolatedProjectsIdeSyncFixture
-import org.hamcrest.core.StringContains
 
 
-class IsolatedProjectsJavaProjectSyncTest extends AbstractIdeaSyncTest {
+class IsolatedProjectsJavaProjectSyncTest extends AbstractIdeSyncTest {
 
     private IsolatedProjectsIdeSyncFixture fixture = new IsolatedProjectsIdeSyncFixture(testDirectory)
 
-    def "IDEA sync has known IP violations for vanilla Java project"() {
+    def "can sync simple java build without problems"() {
         given:
         simpleJavaProject()
 
         when:
-        ideaSync("2024.1")
+        ideaSync(IDEA_COMMUNITY_VERSION)
 
         then:
-        fixture.assertHtmlReportHasProblems {
-            totalProblemsCount = 10
-            withLocatedProblem(new StringContains("ijIdeaPluginConfigurator"), "Project ':' cannot access 'Project.plugins' functionality on subprojects via 'allprojects'")
-            withLocatedProblem(new StringContains("ijIdeaPluginConfigurator"), "Project ':' cannot access 'disableSources' extension on subprojects via 'allprojects'")
-            withLocatedProblem("Plugin class 'JetGradlePlugin'", "Project ':' cannot access 'Project.extensions' functionality on subprojects via 'allprojects'")
-            withLocatedProblem("Plugin class 'JetGradlePlugin'", "Project ':' cannot access 'Project.tasks' functionality on subprojects via 'allprojects'")
-        }
+        fixture.assertHtmlReportHasNoProblems()
     }
 
     private void simpleJavaProject() {
@@ -63,10 +56,22 @@ class IsolatedProjectsJavaProjectSyncTest extends AbstractIdeaSyncTest {
             }
         """
 
+        file("app/src/main/java/App.java") << """
+            public class App {
+                public static void main(String[] args) { System.out.println(Lib.hello()); }
+           }
+        """
+
         file("lib/build.gradle") << """
             plugins {
                 id 'java'
             }
+        """
+
+        file("lib/src/main/java/Lib.java") << """
+            public class Lib {
+                public static String hello() { return "Hello, sync!"; }
+           }
         """
     }
 }

@@ -17,12 +17,13 @@ package org.gradle.integtests
 
 import groovy.test.NotYetImplemented
 import org.gradle.integtests.fixtures.AbstractIntegrationSpec
+import org.gradle.integtests.fixtures.StableConfigurationCacheDeprecations
 import org.gradle.integtests.fixtures.ToBeFixedForConfigurationCache
 import org.gradle.test.precondition.Requires
 import org.gradle.test.preconditions.UnitTestPreconditions
 import spock.lang.Issue
 
-class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
+class SyncTaskIntegrationTest extends AbstractIntegrationSpec implements StableConfigurationCacheDeprecations {
 
     def 'copies files and removes extra files from destDir'() {
         given:
@@ -37,7 +38,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
             someOtherEmptyDir {}
         }
 
-        buildScript '''
+        buildFile '''
             task sync(type: Sync) {
                 into 'dest'
                 from 'source'
@@ -68,7 +69,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
             }
         }
 
-        buildScript '''
+        buildFile '''
             task sync(type: Sync) {
                 into 'dest'
                 from 'source'
@@ -108,7 +109,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
             }
         }
 
-        buildScript '''
+        buildFile '''
             task sync(type: Sync) {
                 from 'source'
                 into 'dest'
@@ -143,7 +144,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
             file 'preserved.txt'
         }
 
-        buildScript '''
+        buildFile '''
             task sync(type: Sync) {
                 from 'source'
                 into 'dest'
@@ -181,7 +182,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
         defaultSourceFileTree()
         file('dest').create {}
 
-        buildScript '''
+        buildFile '''
             task sync(type: Sync) {
                 from 'source'
                 into 'dest'
@@ -210,7 +211,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
             preserved { file('some-preserved-file.txt') }
         }
 
-        buildScript '''
+        buildFile '''
             task sync(type: Sync) {
                 from 'source'
                 into 'dest'
@@ -228,7 +229,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
         file('dest/preserved').exists()
 
         when:
-        buildScript '''
+        buildFile '''
             task sync(type: Sync) {
                 from 'source'
                 into 'dest'
@@ -256,7 +257,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
             }
         }
 
-        buildScript """
+        buildFile """
             task sync(type: Sync) {
                 from 'source'
                 into 'dest'
@@ -285,7 +286,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
             nonPreservedDir {}
         }
 
-        buildScript '''
+        buildFile '''
             task sync(type: Sync) {
                 from 'source'
                 into 'dest'
@@ -311,7 +312,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
             file 'extra1.txt'
             extraDir { file 'extra2.txt' }
         }
-        buildScript '''
+        buildFile '''
             task syncIt() {
                 project.sync {
                     from 'source'
@@ -346,7 +347,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
             }
 
         }
-        buildScript '''
+        buildFile '''
             task syncIt() {
                 project.sync {
                     from 'source'
@@ -384,7 +385,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
         file('dest').create {
             file 'extra.txt'
         }
-        buildScript '''
+        buildFile '''
             task syncIt {
                 doLast {
                     project.sync {
@@ -396,6 +397,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
         '''.stripIndent()
 
         when:
+        expectTaskGetProjectDeprecations()
         run 'syncIt'
 
         then:
@@ -419,7 +421,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
         }
         // Intentionally hold open a file
         def ins = new FileInputStream(file("dest/extra.txt"))
-        buildScript '''
+        buildFile '''
             task syncIt {
                 doLast {
                     project.sync {
@@ -431,6 +433,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
         '''.stripIndent()
 
         expect:
+        expectTaskGetProjectDeprecations()
         fails 'syncIt'
 
         cleanup:
@@ -519,6 +522,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
             }
         '''
         and:
+        executer.withArgument("--no-problems-report")
         run 'syncIt'
         file('build').assertHasDescendants(
             'file.txt',
@@ -533,6 +537,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
         new File(uppercaseNestedDir, 'nestedDirFile2.txt').renameTo(new File(uppercaseNestedDir, 'NESTEDDIRFILE2.TXT'))
 
         when:
+        executer.withArgument("--no-problems-report")
         succeeds('syncIt', '-Dcapitalize')
         then:
         executedAndNotSkipped ':syncIt'
@@ -556,7 +561,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
             dir1 { file 'extra2.txt' }
             dir2 { file 'extra3.txt' }
         }
-        buildScript '''
+        buildFile '''
         task syncIt {
             doLast {
                 project.sync {
@@ -568,6 +573,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
         '''.stripIndent()
 
         when:
+        expectTaskGetProjectDeprecations()
         run 'syncIt'
 
         then:
@@ -594,7 +600,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
             dir1 { file 'extra2.txt' }
             dir2 { file 'extra3.txt' }
         }
-        buildScript '''
+        buildFile '''
             task syncIt {
                 doLast {
                     project.sync {
@@ -608,6 +614,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
         '''.stripIndent()
 
         when:
+        expectTaskGetProjectDeprecations()
         run 'syncIt'
 
         then:
@@ -638,7 +645,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
             dir1 { file 'extra2.txt' }
         }
         file('f.jar').touch()
-        buildScript '''
+        buildFile '''
             configurations { compile }
             dependencies { compile files('f.jar') }
             task syncIt {
@@ -655,6 +662,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
         '''.stripIndent()
 
         when:
+        expectTaskGetProjectDeprecations()
         run 'syncIt'
 
         then:
@@ -678,7 +686,7 @@ class SyncTaskIntegrationTest extends AbstractIntegrationSpec {
             file 'extra.txt'
         }
 
-        buildScript '''
+        buildFile '''
             task sync(type: Sync) {
                 into 'dest'
                 into ('.') {

@@ -17,25 +17,20 @@
 package org.gradle.internal.reflect.validation;
 
 import org.gradle.api.NonNullApi;
+import org.gradle.api.problems.ProblemId;
+import org.gradle.api.problems.internal.GradleCoreProblemGroup;
+import org.gradle.api.problems.internal.InternalProblem;
 import org.gradle.api.problems.internal.InternalProblemBuilder;
-import org.gradle.api.problems.internal.Problem;
+import org.gradle.api.problems.internal.TypeValidationData;
+import org.gradle.api.problems.internal.TypeValidationDataSpec;
 
 import javax.annotation.Nullable;
-import java.util.Map;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
-
-import static java.lang.Boolean.TRUE;
-import static java.lang.Boolean.parseBoolean;
-import static java.util.Optional.ofNullable;
 
 @NonNullApi
 public class DefaultTypeAwareProblemBuilder extends DelegatingProblemBuilder implements TypeAwareProblemBuilder {
-
-    public static final String TYPE_NAME = "typeName";
-    public static final String PLUGIN_ID = "pluginId";
-    public static final String PARENT_PROPERTY_NAME = "parentPropertyName";
-    public static final String PROPERTY_NAME = "propertyName";
-    public static final String TYPE_IS_IRRELEVANT_IN_ERROR_MESSAGE = "typeIsIrrelevantInErrorMessage";
 
     public DefaultTypeAwareProblemBuilder(InternalProblemBuilder problemBuilder) {
         super(problemBuilder);
@@ -44,20 +39,20 @@ public class DefaultTypeAwareProblemBuilder extends DelegatingProblemBuilder imp
     @Override
     public TypeAwareProblemBuilder withAnnotationType(@Nullable Class<?> classWithAnnotationAttached) {
         if (classWithAnnotationAttached != null) {
-            additionalData(TYPE_NAME, classWithAnnotationAttached.getName().replaceAll("\\$", "."));
+            this.additionalDataInternal(TypeValidationDataSpec.class, data -> data.typeName(classWithAnnotationAttached.getName().replaceAll("\\$", ".")));
         }
         return this;
     }
 
     @Override
-    public TypeAwareProblemBuilder typeIsIrrelevantInErrorMessage() {
-        additionalData(TYPE_IS_IRRELEVANT_IN_ERROR_MESSAGE, TRUE.toString());
+    public TypeAwareProblemBuilder forProperty(String propertyName) {
+        this.additionalDataInternal(TypeValidationDataSpec.class, data -> data.propertyName(propertyName));
         return this;
     }
 
     @Override
-    public TypeAwareProblemBuilder forProperty(String propertyName) {
-        additionalData(PROPERTY_NAME, propertyName);
+    public TypeAwareProblemBuilder forFunction(String methodName) {
+        this.additionalDataInternal(TypeValidationDataSpec.class, data -> data.functionName(methodName));
         return this;
     }
 
@@ -67,29 +62,39 @@ public class DefaultTypeAwareProblemBuilder extends DelegatingProblemBuilder imp
             return this;
         }
         String pp = getParentProperty(parentProperty);
-        additionalData(PARENT_PROPERTY_NAME, pp);
+        this.additionalDataInternal(TypeValidationDataSpec.class, data -> data.parentPropertyName(pp));
         parentPropertyAdditionalData = pp;
         return this;
     }
 
     @Override
-    public Problem build() {
-        Problem problem = super.build();
-        String prefix = introductionFor(problem.getAdditionalData());
+    public InternalProblem build() {
+        InternalProblem problem = super.build();
+        Optional<TypeValidationData> additionalData = Optional.ofNullable((TypeValidationData) problem.getAdditionalData());
+        String prefix = introductionFor(additionalData, isTypeIrrelevantInErrorMessage(problem.getDefinition().getId()));
         String text = Optional.ofNullable(problem.getContextualLabel()).orElseGet(() -> problem.getDefinition().getId().getDisplayName());
-        return problem.toBuilder().contextualLabel(prefix + text).build();
+        return problem.toBuilder(getAdditionalDataBuilderFactory(), getInstantiator(), getPayloadSerializer()).contextualLabel(prefix + text).build();
     }
 
-    public static String introductionFor(Map<String, Object> additionalMetadata) {
-        Optional<String> rootType = ofNullable(additionalMetadata.get(TYPE_NAME))
+    private static boolean isTypeIrrelevantInErrorMessage(ProblemId problemId) {
+        if (!problemId.getGroup().equals(GradleCoreProblemGroup.validation().property())) {
+            return false;
+        } else {
+            List<String> candidates = Arrays.asList("unknown-implementation", "unknown-implementation-nested", "implicit-dependency");
+            return candidates.contains(problemId.getName());
+        }
+    }
+
+    public static String introductionFor(Optional<TypeValidationData> additionalData, boolean typeIrrelevantInErrorMessage) {
+        Optional<String> rootType = additionalData.map(TypeValidationData::getTypeName)
             .map(Object::toString)
             .filter(DefaultTypeAwareProblemBuilder::shouldRenderType);
-        Optional<DefaultPluginId> pluginId = ofNullable(additionalMetadata.get(PLUGIN_ID))
+        Optional<DefaultPluginId> pluginId = additionalData.map(TypeValidationData::getPluginId)
             .map(Object::toString)
             .map(DefaultPluginId::new);
 
         StringBuilder builder = new StringBuilder();
-        boolean typeRelevant = rootType.isPresent() && !parseBoolean(additionalMetadata.getOrDefault(TYPE_IS_IRRELEVANT_IN_ERROR_MESSAGE, "").toString());
+        boolean typeRelevant = rootType.isPresent() && !typeIrrelevantInErrorMessage;
         if (typeRelevant) {
             if (pluginId.isPresent()) {
                 builder.append("In plugin '")
@@ -101,27 +106,53 @@ public class DefaultTypeAwareProblemBuilder extends DelegatingProblemBuilder imp
             builder.append(rootType.get()).append("' ");
         }
 
-        Object property = additionalMetadata.get(PROPERTY_NAME);
+        Object property = additionalData.map(TypeValidationData::getPropertyName).orElse(null);
         if (property != null) {
-            if (typeRelevant) {
-                builder.append("property '");
-            } else {
-                if (pluginId.isPresent()) {
-                    builder.append("In plugin '")
-                        .append(pluginId.get())
-                        .append("' property '");
-                } else {
-                    builder.append("Property '");
-                }
-            }
-            ofNullable(additionalMetadata.get(PARENT_PROPERTY_NAME)).ifPresent(parentProperty -> {
-                builder.append(parentProperty);
-                builder.append('.');
-            });
-            builder.append(property)
-                .append("' ");
+            renderPropertyIntro(additionalData, typeRelevant, builder, pluginId, property);
         }
+
+        Object method = additionalData.map(TypeValidationData::getFunctionName).orElse(null);
+        if (method != null) {
+            renderMethodIntro(typeRelevant, builder, pluginId, method);
+        }
+
         return builder.toString();
+    }
+
+    private static void renderPropertyIntro(Optional<TypeValidationData> additionalData, boolean typeRelevant, StringBuilder builder, Optional<DefaultPluginId> pluginId, Object property) {
+        if (typeRelevant) {
+            builder.append("property '");
+        } else {
+            if (pluginId.isPresent()) {
+                builder.append("In plugin '")
+                    .append(pluginId.get())
+                    .append("' property '");
+            } else {
+                builder.append("Property '");
+            }
+        }
+        additionalData.map(TypeValidationData::getParentPropertyName).ifPresent(parentProperty -> {
+            builder.append(parentProperty);
+            builder.append('.');
+        });
+        builder.append(property)
+            .append("' ");
+    }
+
+    private static void renderMethodIntro(boolean typeRelevant, StringBuilder builder, Optional<DefaultPluginId> pluginId, Object method) {
+        if (typeRelevant) {
+            builder.append("method '");
+        } else {
+            if (pluginId.isPresent()) {
+                builder.append("In plugin '")
+                    .append(pluginId.get())
+                    .append("' method '");
+            } else {
+                builder.append("Method '");
+            }
+        }
+        builder.append(method)
+            .append("' ");
     }
 
     // A heuristic to determine if the type is relevant or not.

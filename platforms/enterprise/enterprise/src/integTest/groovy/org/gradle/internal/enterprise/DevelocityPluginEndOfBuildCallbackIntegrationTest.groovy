@@ -16,30 +16,42 @@
 
 package org.gradle.internal.enterprise
 
+import org.gradle.api.problems.ProblemGroup
+import org.gradle.api.problems.ProblemId
 import org.gradle.integtests.fixtures.AbstractIntegrationSpec
+
+import static org.gradle.api.problems.fixtures.ReportingScript.getProblemReportingScript
 
 class DevelocityPluginEndOfBuildCallbackIntegrationTest extends AbstractIntegrationSpec {
 
     def plugin = new DevelocityPluginCheckInFixture(testDirectory, mavenRepo, createExecuter())
+    def failingTaskName = "reportProblem"
+    def succeedingTaskName = "succeedingTask"
 
     def setup() {
         settingsFile << plugin.pluginManagement() << plugin.plugins()
         plugin.publishDummyPlugin(executer)
-        buildFile << """
-            task t
-            task f { doLast { throw new RuntimeException("failed") } }
+
+        buildFile """
+        ${ProblemGroup.name} problemGroup = ${ProblemGroup.name}.create("generic", "group label");
+        ${ProblemId.name} problemId = ${ProblemId.name}.create("type", "label", problemGroup)
+            ${getProblemReportingScript """
+                problems.getReporter().throwing(new RuntimeException('failed'), problemId) {}
+            """}
+
+            task $succeedingTaskName
         """
     }
 
     def "end of build listener is notified on success"() {
         when:
-        succeeds "t"
+        succeeds succeedingTaskName
 
         then:
         plugin.assertEndOfBuildWithFailure(output, null)
 
         when:
-        succeeds "t"
+        succeeds succeedingTaskName
 
         then:
         plugin.assertEndOfBuildWithFailure(output, null)
@@ -47,13 +59,13 @@ class DevelocityPluginEndOfBuildCallbackIntegrationTest extends AbstractIntegrat
 
     def "end of build listener is notified on failure"() {
         when:
-        fails "f"
+        fails failingTaskName
 
         then:
         plugin.assertEndOfBuildWithFailure(output, "org.gradle.internal.exceptions.LocationAwareException: Build file")
 
         when:
-        fails "f"
+        fails failingTaskName
 
         then:
         // Note: we test less of the exception here because it's different in a build where configuration came from cache
@@ -63,14 +75,14 @@ class DevelocityPluginEndOfBuildCallbackIntegrationTest extends AbstractIntegrat
 
     def "end of build listener may fail with an exception"() {
         when:
-        fails "t", "-Dbuild-listener-failure"
+        fails succeedingTaskName, "-Dbuild-listener-failure"
 
         then:
         plugin.assertEndOfBuildWithFailure(output, null)
         failure.assertHasDescription("broken")
 
         when:
-        fails "t", "-Dbuild-listener-failure"
+        fails succeedingTaskName, "-Dbuild-listener-failure"
 
         then:
         plugin.assertEndOfBuildWithFailure(output, null)

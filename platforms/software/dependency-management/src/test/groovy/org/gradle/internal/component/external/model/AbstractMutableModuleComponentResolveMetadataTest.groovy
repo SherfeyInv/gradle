@@ -219,10 +219,10 @@ abstract class AbstractMutableModuleComponentResolveMetadataTest extends Specifi
 
         given:
         def v1 = metadata.addVariant("api", attributes(usage: "compile"))
-        v1.addDependency("g1", "m1", v("v1"), [], null, ImmutableAttributes.EMPTY, [], false, null)
-        v1.addDependency("g2", "m2", v("v2"), [], "v2 is tested", ImmutableAttributes.EMPTY, [], true, null)
+        v1.addDependency("g1", "m1", v("v1"), [], null, ImmutableAttributes.EMPTY, [] as Set, false, null)
+        v1.addDependency("g2", "m2", v("v2"), [], "v2 is tested", ImmutableAttributes.EMPTY, [] as Set, true, null)
         def v2 = metadata.addVariant("runtime", attributes(usage: "runtime"))
-        v2.addDependency("g1", "m1", v("v1"), [], null, ImmutableAttributes.EMPTY, [], false, null)
+        v2.addDependency("g1", "m1", v("v1"), [], null, ImmutableAttributes.EMPTY, [] as Set, false, null)
 
         expect:
         metadata.variants.size() == 2
@@ -273,11 +273,11 @@ abstract class AbstractMutableModuleComponentResolveMetadataTest extends Specifi
         def v1 = metadata.addVariant("api", attributes1,)
         v1.addFile("f1.jar", "f1.jar")
         v1.addFile("f2.jar", "f2-1.2.jar")
-        v1.addDependency("g1", "m1", v("v1"), [], null, ImmutableAttributes.EMPTY, [], false, null)
+        v1.addDependency("g1", "m1", v("v1"), [], null, ImmutableAttributes.EMPTY, [] as Set, false, null)
         def v2 = metadata.addVariant("runtime", attributes2,)
         v2.addFile("f2", "f2-version.zip")
-        v2.addDependency("g2", "m2", v("v2"), [], null, ImmutableAttributes.EMPTY, [], false, null)
-        v2.addDependency("g3", "m3", v("v3"), [], null, ImmutableAttributes.EMPTY, [], false, null)
+        v2.addDependency("g2", "m2", v("v2"), [], null, ImmutableAttributes.EMPTY, [] as Set, false, null)
+        v2.addDependency("g3", "m3", v("v3"), [], null, ImmutableAttributes.EMPTY, [] as Set, false, null)
 
         expect:
         def immutable = metadata.asImmutable()
@@ -298,11 +298,11 @@ abstract class AbstractMutableModuleComponentResolveMetadataTest extends Specifi
         api.dependencies[0].selector.module == "m1"
         api.dependencies[0].selector.version == "v1"
 
-        api.variants.size() == 1
-        api.variants[0].asDescribable().displayName == "group:module:version variant api"
-        api.variants[0].attributes == attributes1
-        api.variants[0].artifacts.size() == 2
-        def artifacts1 = api.variants[0].artifacts as List
+        api.artifactVariants.size() == 1
+        api.artifactVariants[0].asDescribable().displayName == "group:module:version variant api"
+        api.artifactVariants[0].attributes == attributes1
+        api.artifactVariants[0].artifacts.size() == 2
+        def artifacts1 = api.artifactVariants[0].artifacts as List
         artifacts1[0].name.name == 'f1'
         artifacts1[0].name.type == 'jar'
         artifacts1[0].name.classifier == null
@@ -312,14 +312,14 @@ abstract class AbstractMutableModuleComponentResolveMetadataTest extends Specifi
         runtime.name == 'runtime'
         runtime.asDescribable().displayName == 'group:module:version variant runtime'
         runtime.attributes == attributes2
-        runtime.variants.size() == 1
+        runtime.artifactVariants.size() == 1
 
         runtime.dependencies.size() == 2
 
-        runtime.variants[0].asDescribable().displayName == "group:module:version variant runtime"
-        runtime.variants[0].attributes == attributes2
-        runtime.variants[0].artifacts.size() == 1
-        def artifacts2 = runtime.variants[0].artifacts as List
+        runtime.artifactVariants[0].asDescribable().displayName == "group:module:version variant runtime"
+        runtime.artifactVariants[0].attributes == attributes2
+        runtime.artifactVariants[0].artifacts.size() == 1
+        def artifacts2 = runtime.artifactVariants[0].artifacts as List
         artifacts2[0].name.name == 'f2'
         artifacts2[0].name.type == 'zip'
         artifacts2[0].name.classifier == null

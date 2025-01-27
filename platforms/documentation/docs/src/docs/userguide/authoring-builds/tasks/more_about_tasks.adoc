@@ -1,4 +1,4 @@
-// Copyright (C) 2023 Gradle, Inc.
+// Copyright (C) 2024 Gradle, Inc.
 //
 // Licensed under the Creative Commons Attribution-Noncommercial-ShareAlike 4.0 International License.;
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ A task represents some *independent unit of work* that a build performs, such as
 
 image::writing-tasks-1.png[]
 
-Before reading this chapter, it's recommended that you first read the <<gradle_directories.adoc#gradle_directories,Learning The Basics>> and complete the <<partr1_gradle_init.adoc#partr1_gradle_init,Tutorial>>.
+Before reading this chapter, it's recommended that you first read the <<gradle_directories.adoc#gradle_directories,Learning The Basics>> and complete the <<part1_gradle_init_project.adoc#part1_gradle_init,Tutorial>>.
 
 [[sec:more_listing_tasks]]
 == Listing tasks
@@ -141,7 +141,7 @@ plugins {
 [.multi-language-sample]
 =====
 .app/build.gradle
-[source,groovy]
+[source, groovy]
 ----
 plugins {
     id('base')
@@ -304,7 +304,7 @@ tasks.register("helloTask") {
 [source,groovy]
 ----
 tasks.register("helloTask") {
-    println("Hello")
+    println 'Hello'
 }
 ----
 =====
@@ -354,7 +354,7 @@ tasks.register("helloTask") {
 tasks.register("helloTask") {
     group = "Other"
     description = "Hello task"
-    println("Hello")
+    println 'Hello'
 }
 ----
 =====
@@ -530,13 +530,13 @@ Let's create our own group so that all tasks are hidden by default by updating t
 val myBuildGroup = "my app build"               // Create a group name
 
 tasks.register<TaskReportTask>("tasksAll") {    // Register the tasksAll task
-    group = myBuildGroup
-    description = "Show additional tasks."
-    setShowDetail(true)
+group = myBuildGroup
+description = "Show additional tasks."
+setShowDetail(true)
 }
 
 tasks.named<TaskReportTask>("tasks") {          // Move all existing tasks to the group
-    displayGroup = myBuildGroup
+displayGroup = myBuildGroup
 }
 ----
 =====
@@ -547,13 +547,13 @@ tasks.named<TaskReportTask>("tasks") {          // Move all existing tasks to th
 ----
 def myBuildGroup = "my app build"               // Create a group name
 
-tasks.register(TaskReportTask, "tasksAll") {    // Register the tasksAll task
+tasks.register("tasksAll", TaskReportTask) {    // Register the tasksAll task
     group = myBuildGroup
     description = "Show additional tasks."
     setShowDetail(true)
 }
 
-tasks.named(TaskReportTask, "tasks") {          // Move all existing tasks to the group
+tasks.named("tasks", TaskReportTask) {          // Move all existing tasks to the group
     displayGroup = myBuildGroup
 }
 ----
@@ -704,7 +704,7 @@ Gradle marks the tasks for the production code as `UP-TO-DATE`, indicating that 
 ----
 $./gradlew :app:build
 
-lkassovic@MacBook-Pro temp1 % ./gradlew :app:build
+gradle@MacBook-Pro temp1 % ./gradlew :app:build
 > Task :app:compileJava UP-TO-DATE
 > Task :app:processResources NO-SOURCE
 > Task :app:classes UP-TO-DATE
@@ -803,9 +803,9 @@ abstract class MyCopyTask : DefaultTask() {                 // <3>
 =====
 [source,groovy]
 ----
-tasks.register(Copy, "myCopy")                              // <1>
+tasks.register("myCopy", Copy)                              // <1>
 
-tasks.named(Copy, "myCopy") {                               // <2>
+tasks.named("myCopy", Copy) {                               // <2>
     from "resources"
     into "target"
     include "**/*.txt", "**/*.xml", "**/*.properties"
@@ -911,7 +911,7 @@ To create a custom task class, you extend link:{javadocPath}/org/gradle/api/Defa
 .app/build.gradle.kts
 [source,kotlin]
 ----
-abstract class MyCopyTask extends DefaultTask {
+abstract class MyCopyTask : DefaultTask() {
 
 }
 ----
@@ -921,11 +921,9 @@ abstract class MyCopyTask extends DefaultTask {
 .app/build.gradle
 [source,groovy]
 ----
-abstract class MyCopyTask : DefaultTask() {
+abstract class MyCopyTask extends DefaultTask {
 
 }
 ----
 =====
 ====
-
-You can learn more about developing custom task types in <<more_about_tasks.adoc#sec:implementing_tasks,Implementing Tasks>>.

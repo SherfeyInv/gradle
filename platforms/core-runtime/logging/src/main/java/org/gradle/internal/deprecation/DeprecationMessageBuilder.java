@@ -17,17 +17,19 @@
 package org.gradle.internal.deprecation;
 
 import com.google.common.base.Joiner;
-import org.gradle.api.problems.internal.DocLink;
-import org.gradle.api.problems.internal.Problem;
+import org.gradle.api.problems.DocLink;
+import org.gradle.api.problems.internal.InternalProblem;
 import org.gradle.util.GradleVersion;
 
 import javax.annotation.CheckReturnValue;
 import java.util.List;
 
+@SuppressWarnings("SameNameButDifferent")
 @CheckReturnValue
 public class DeprecationMessageBuilder<T extends DeprecationMessageBuilder<T>> {
 
     private static final GradleVersion GRADLE9 = GradleVersion.version("9.0");
+    private static final GradleVersion GRADLE10 = GradleVersion.version("10.0");
 
     protected String summary;
     private DeprecationTimeline deprecationTimeline;
@@ -42,7 +44,7 @@ public class DeprecationMessageBuilder<T extends DeprecationMessageBuilder<T>> {
     DeprecationMessageBuilder() {
     }
 
-    public static WithDocumentation withDocumentation(Problem warning, WithDeprecationTimeline withDeprecationTimeline) {
+    public static WithDocumentation withDocumentation(InternalProblem warning, WithDeprecationTimeline withDeprecationTimeline) {
         DocLink docLink = warning.getDefinition().getDocumentationLink();
         if (docLink != null) {
             return withDeprecationTimeline
@@ -88,10 +90,26 @@ public class DeprecationMessageBuilder<T extends DeprecationMessageBuilder<T>> {
     }
 
     /**
+     * Output: This is scheduled to be removed in Gradle 10.0.
+     */
+    public WithDeprecationTimeline willBeRemovedInGradle10() {
+        this.deprecationTimeline = DeprecationTimeline.willBeRemovedInVersion(GRADLE10);
+        return new WithDeprecationTimeline(this);
+    }
+
+    /**
      * Output: This will fail with an error in Gradle 9.0.
      */
     public WithDeprecationTimeline willBecomeAnErrorInGradle9() {
         this.deprecationTimeline = DeprecationTimeline.willBecomeAnErrorInVersion(GRADLE9);
+        return new WithDeprecationTimeline(this);
+    }
+
+    /**
+     * Output: This will fail with an error in Gradle 10.0.
+     */
+    public WithDeprecationTimeline willBecomeAnErrorInGradle10() {
+        this.deprecationTimeline = DeprecationTimeline.willBecomeAnErrorInVersion(GRADLE10);
         return new WithDeprecationTimeline(this);
     }
 

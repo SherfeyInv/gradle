@@ -1,5 +1,7 @@
 package org.gradle.internal.declarativedsl.analysis
 
+import org.gradle.declarative.dsl.evaluation.OperationGenerationId
+import org.gradle.declarative.dsl.schema.DataParameter
 import org.gradle.declarative.dsl.schema.DataProperty
 import org.gradle.declarative.dsl.schema.DataType
 import org.gradle.declarative.dsl.schema.FqName
@@ -15,6 +17,9 @@ data class ResolutionResult(
     val additions: List<DataAdditionRecord>,
     val nestedObjectAccess: List<NestedObjectAccessRecord>,
     val errors: List<ResolutionError>,
+    val assignmentsFromDefaults: List<AssignmentRecord> = emptyList(),
+    val additionsFromDefaults: List<DataAdditionRecord> = emptyList(),
+    val nestedObjectAccessFromDefaults: List<NestedObjectAccessRecord> = emptyList()
 )
 
 
@@ -42,6 +47,7 @@ sealed interface ErrorReason {
     data class ValReassignment(val localVal: LocalValue) : ErrorReason
     data class ExternalReassignment(val external: ObjectOrigin.External) : ErrorReason
     data class AssignmentTypeMismatch(val expected: DataType, val actual: DataType) : ErrorReason
+    data class OpaqueArgumentForIdentityParameter(val functionCall: FunctionCall, val parameter: DataParameter, val argument: ObjectOrigin) : ErrorReason
 
     // TODO: these two are never reported for now, instead it is UnresolvedFunctionCallSignature
     data object UnusedConfigureLambda : ErrorReason
@@ -53,4 +59,15 @@ sealed interface ErrorReason {
     data object UnresolvedAssignmentRhs : ErrorReason // TODO: resolution trace here, too?
     data object UnitAssignment : ErrorReason
     data object DanglingPureExpression : ErrorReason
+}
+
+
+class DefaultOperationGenerationId(override val ordinal: Int) : OperationGenerationId {
+    companion object {
+        val preExisting = DefaultOperationGenerationId(-1)
+        val defaults = DefaultOperationGenerationId(0)
+        val finalEvaluation = DefaultOperationGenerationId(1)
+    }
+
+    override fun compareTo(other: OperationGenerationId): Int = compareValues(ordinal, other.ordinal)
 }

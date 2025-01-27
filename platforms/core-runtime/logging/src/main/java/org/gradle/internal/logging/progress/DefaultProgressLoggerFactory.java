@@ -35,6 +35,7 @@ public class DefaultProgressLoggerFactory implements ProgressLoggerFactory {
     private final ProgressListener progressListener;
     private final Clock clock;
     private final BuildOperationIdFactory buildOperationIdFactory;
+    @SuppressWarnings("ThreadLocalUsage")
     private final ThreadLocal<ProgressLoggerImpl> current = new ThreadLocal<ProgressLoggerImpl>();
     private final CurrentBuildOperationRef currentBuildOperationRef = CurrentBuildOperationRef.instance();
 
@@ -57,7 +58,7 @@ public class DefaultProgressLoggerFactory implements ProgressLoggerFactory {
         if (buildOperationCategory == BuildOperationCategory.TASK) {
             // This is a legacy quirk.
             // Scans use this to determine that progress logging is indicating start/finish of tasks.
-            // This can be removed in Gradle 5.0 (along with the concept of a “logging category” of an operation)
+            // This can be removed in Gradle 5.0 (along with the concept of a "logging category" of an operation)
             category = ProgressStartEvent.TASK_CATEGORY;
         }
 

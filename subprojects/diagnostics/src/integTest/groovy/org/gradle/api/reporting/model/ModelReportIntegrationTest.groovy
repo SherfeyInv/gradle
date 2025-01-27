@@ -22,6 +22,11 @@ import org.gradle.integtests.fixtures.UnsupportedWithConfigurationCache
 @UnsupportedWithConfigurationCache(because = "software model")
 class ModelReportIntegrationTest extends AbstractIntegrationSpec {
 
+    @Override
+    protected void setupExecuter() {
+        super.setupExecuter()
+    }
+
     def "displays basic structure of an empty project"() {
         given:
         buildFile
@@ -34,6 +39,7 @@ class ModelReportIntegrationTest extends AbstractIntegrationSpec {
         modelReportOutput.hasNodeStructure({
             model() {
                 tasks {
+                    artifactTransforms()
                     buildEnvironment()
                     components(nodeValue: "task ':components'", type: 'org.gradle.api.reporting.components.ComponentReport')
                     dependencies()
@@ -253,6 +259,7 @@ model {
 """
         buildFile
         when:
+        executer.withArgument("--no-problems-report")
         run "model"
 
         then:
@@ -297,6 +304,12 @@ model {
 + tasks
       | Type:   \torg.gradle.model.ModelMap<org.gradle.api.Task>
       | Creator: \tProject.<init>.tasks()
+    + artifactTransforms
+          | Type:   \torg.gradle.api.tasks.diagnostics.ArtifactTransformsReportTask
+          | Value:  \ttask ':artifactTransforms\'
+          | Creator: \tProject.<init>.tasks.artifactTransforms()
+          | Rules:
+             ⤷ copyToTaskContainer
     + buildEnvironment
           | Type:   \torg.gradle.api.tasks.diagnostics.BuildEnvironmentReportTask
           | Value:  \ttask ':buildEnvironment\'

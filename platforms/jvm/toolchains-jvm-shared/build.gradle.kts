@@ -24,31 +24,37 @@ dependencies {
     api(libs.inject)
     api(libs.jsr305)
 
-    api(project(":java-language-extensions"))
-    api(project(":base-services"))
-    api(project(":core-api"))
-    api(project(":file-collections"))
-    api(project(":jvm-services"))
-    api(project(":persistent-cache"))
-    api(project(":core"))
+    api(projects.stdlibJavaExtensions)
+    api(projects.baseServices)
+    api(projects.coreApi)
+    api(projects.fileCollections)
+    api(projects.fileOperations)
+    api(projects.jvmServices)
+    api(projects.persistentCache)
+    api(projects.core)
+    api(projects.native)
+    api(projects.resources)
 
-    implementation(project(":logging"))
+    implementation(projects.functional)
+
+    implementation(projects.logging)
     implementation(libs.guava)
     implementation(libs.slf4jApi)
     implementation(libs.commonsIo)
     implementation(libs.commonsLang)
 
-    testImplementation(testFixtures(project(":core")))
+    testImplementation(testFixtures(projects.core))
 
-    testRuntimeOnly(project(":distributions-jvm")) {
+    testRuntimeOnly(projects.distributionsJvm) {
         because("ProjectBuilder tests load services from a Gradle distribution.  Toolchain usage requires JVM distribution.")
     }
 }
 
 packageCycles {
-    // Needed for the factory methods in the interface
-    excludePatterns.add("org/gradle/jvm/toolchain/JavaLanguageVersion**")
     excludePatterns.add("org/gradle/jvm/toolchain/**")
 }
 
 integTest.usesJavadocCodeSnippets.set(true)
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}

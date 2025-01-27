@@ -8,26 +8,26 @@ description = """Performance tests for the build scan plugin
     | """.trimMargin()
 
 dependencies {
-    performanceTestImplementation(project(":base-services"))
-    performanceTestImplementation(project(":internal-testing"))
+    performanceTestImplementation(projects.baseServices)
+    performanceTestImplementation(projects.internalTesting)
 
-    performanceTestCompileOnly(project(":internal-integ-testing"))
-    performanceTestCompileOnly(project(":internal-performance-testing"))
+    performanceTestCompileOnly(projects.internalIntegTesting)
+    performanceTestCompileOnly(projects.internalPerformanceTesting)
 
     performanceTestImplementation(libs.gradleProfiler)
 
-    testFixturesApi(project(":base-services"))
+    testFixturesApi(projects.baseServices)
 
     testFixturesApi(libs.commonsIo)
 
-    testFixturesImplementation(project(":internal-integ-testing"))
-    testFixturesImplementation(project(":internal-testing"))
-    testFixturesImplementation(project(":internal-performance-testing"))
-    testFixturesImplementation(project(":logging"))
+    testFixturesImplementation(projects.internalIntegTesting)
+    testFixturesImplementation(projects.internalTesting)
+    testFixturesImplementation(projects.internalPerformanceTesting)
+    testFixturesImplementation(projects.logging)
 
     testFixturesImplementation(libs.groovyJson)
 
-    performanceTestDistributionRuntimeOnly(project(":distributions-full")) {
+    performanceTestDistributionRuntimeOnly(projects.distributionsFull) {
         because("so that all Gradle features are available")
     }
 }
@@ -88,4 +88,7 @@ tasks.withType<gradlebuild.performance.tasks.PerformanceTest>().configureEach {
 internal
 class DevelocityPluginInfoDirPropertyProvider(@InputFiles @PathSensitive(PathSensitivity.RELATIVE) val pluginInfoDir: Provider<File>) : CommandLineArgumentProvider {
     override fun asArguments() = listOf("-Dorg.gradle.performance.develocity.plugin.infoDir=${pluginInfoDir.get().path}")
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

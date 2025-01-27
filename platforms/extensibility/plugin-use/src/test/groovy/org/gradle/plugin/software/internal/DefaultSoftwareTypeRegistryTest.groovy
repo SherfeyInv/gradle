@@ -19,6 +19,7 @@ package org.gradle.plugin.software.internal
 import com.google.common.reflect.TypeToken
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.initialization.Settings
 import org.gradle.api.internal.plugins.software.SoftwareType
 import org.gradle.api.internal.tasks.properties.InspectionScheme
 import org.gradle.internal.properties.annotations.PropertyMetadata
@@ -38,10 +39,10 @@ class DefaultSoftwareTypeRegistryTest extends Specification {
         def softwareType = Mock(SoftwareType)
 
         when:
-        registry.register(SoftwareTypeImpl)
+        registry.register(SoftwareTypeImpl, RegisteringPlugin)
 
         and:
-        def implementations = registry.softwareTypeImplementations
+        def implementations = registry.softwareTypeImplementations.values()
 
         then:
         1 * inspectionScheme.getMetadataStore() >> metadataStore
@@ -50,7 +51,7 @@ class DefaultSoftwareTypeRegistryTest extends Specification {
         1 * propertyMetadata.getPropertyType() >> SoftwareType.class
         (1..2) * propertyMetadata.getDeclaredType() >> TypeToken.of(TestModel.class)
         1 * propertyMetadata.getAnnotation(SoftwareType.class) >> Optional.of(softwareType)
-        2 * softwareType.name() >> "test"
+        _ * softwareType.name() >> "test"
         (1..2) * softwareType.modelPublicType() >> modelPublicType
         1 * metadataStore.getTypeMetadata(TestModel) >> modelTypeMetadata
         1 * modelTypeMetadata.getPropertiesMetadata() >> []
@@ -68,7 +69,7 @@ class DefaultSoftwareTypeRegistryTest extends Specification {
         def pluginTypeMetadata = Mock(TypeMetadata)
 
         when:
-        registry.register(NotASoftwareTypeImpl)
+        registry.register(NotASoftwareTypeImpl, RegisteringPlugin)
         def implementations = registry.softwareTypeImplementations
 
         then:
@@ -87,8 +88,8 @@ class DefaultSoftwareTypeRegistryTest extends Specification {
         def softwareType = Mock(SoftwareType)
 
         when:
-        registry.register(SoftwareTypeImpl)
-        registry.register(SoftwareTypeImpl)
+        registry.register(SoftwareTypeImpl, RegisteringPlugin)
+        registry.register(SoftwareTypeImpl, RegisteringPlugin)
         def implementations = registry.softwareTypeImplementations
 
         then:
@@ -98,7 +99,7 @@ class DefaultSoftwareTypeRegistryTest extends Specification {
         1 * propertyMetadata.getPropertyType() >> SoftwareType.class
         1 * propertyMetadata.getDeclaredType() >> TypeToken.of(TestModel.class)
         1 * propertyMetadata.getAnnotation(SoftwareType.class) >> Optional.of(softwareType)
-        2 * softwareType.name() >> "test"
+        _ * softwareType.name() >> "test"
         2 * softwareType.modelPublicType() >> TestModel
         1 * metadataStore.getTypeMetadata(TestModel) >> modelTypeMetadata
         1 * modelTypeMetadata.getPropertiesMetadata() >> []
@@ -116,8 +117,8 @@ class DefaultSoftwareTypeRegistryTest extends Specification {
         def softwareType = Mock(SoftwareType)
 
         when:
-        registry.register(SoftwareTypeImpl)
-        registry.register(DuplicateSoftwareTypeImpl)
+        registry.register(SoftwareTypeImpl, RegisteringPlugin)
+        registry.register(DuplicateSoftwareTypeImpl, RegisteringPlugin)
         registry.getSoftwareTypeImplementations()
 
         then:
@@ -132,7 +133,7 @@ class DefaultSoftwareTypeRegistryTest extends Specification {
         1 * duplicatePropertyMetadata.getPropertyType() >> SoftwareType.class
         1 * duplicatePropertyMetadata.getDeclaredType() >> TypeToken.of(TestModel.class)
         1 * duplicatePropertyMetadata.getAnnotation(SoftwareType.class) >> Optional.of(softwareType)
-        4 * softwareType.name() >> "test"
+        _ * softwareType.name() >> "test"
         2 * softwareType.modelPublicType() >> TestModel
         2 * metadataStore.getTypeMetadata(TestModel) >> modelTypeMetadata
         1 * modelTypeMetadata.getPropertiesMetadata() >> []
@@ -143,6 +144,8 @@ class DefaultSoftwareTypeRegistryTest extends Specification {
     }
 
     private static class TestModel { }
+
+    private abstract static class RegisteringPlugin implements Plugin<Settings> { }
 
     private abstract static class SoftwareTypeImpl implements Plugin<Project> { }
 

@@ -16,11 +16,13 @@
 
 package org.gradle.testfixtures.internal;
 
+import org.gradle.api.JavaVersion;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.ModuleVersionIdentifier;
 import org.gradle.api.artifacts.component.BuildIdentifier;
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier;
 import org.gradle.api.internal.BuildDefinition;
+import org.gradle.api.internal.DocumentationRegistry;
 import org.gradle.api.internal.GradleInternal;
 import org.gradle.api.internal.StartParameterInternal;
 import org.gradle.api.internal.artifacts.DefaultBuildIdentifier;
@@ -31,6 +33,8 @@ import org.gradle.api.internal.initialization.ClassLoaderScope;
 import org.gradle.api.internal.project.ProjectInternal;
 import org.gradle.api.internal.project.ProjectState;
 import org.gradle.api.internal.project.ProjectStateRegistry;
+import org.gradle.api.logging.Logger;
+import org.gradle.api.logging.Logging;
 import org.gradle.initialization.BuildRequestMetaData;
 import org.gradle.initialization.DefaultBuildCancellationToken;
 import org.gradle.initialization.DefaultBuildRequestMetaData;
@@ -46,6 +50,7 @@ import org.gradle.internal.build.BuildModelControllerServices;
 import org.gradle.internal.build.BuildState;
 import org.gradle.internal.build.BuildStateRegistry;
 import org.gradle.internal.build.RootBuildState;
+import org.gradle.internal.buildprocess.BuildProcessScopeServices;
 import org.gradle.internal.buildtree.BuildTreeLifecycleController;
 import org.gradle.internal.buildtree.BuildTreeModelControllerServices;
 import org.gradle.internal.buildtree.BuildTreeState;
@@ -54,15 +59,17 @@ import org.gradle.internal.classpath.ClassPath;
 import org.gradle.internal.composite.IncludedBuildInternal;
 import org.gradle.internal.concurrent.Stoppable;
 import org.gradle.internal.id.UniqueId;
+import org.gradle.internal.jvm.SupportedJavaVersions;
 import org.gradle.internal.logging.services.LoggingServiceRegistry;
 import org.gradle.internal.nativeintegration.services.NativeServices;
 import org.gradle.internal.nativeintegration.services.NativeServices.NativeServicesMode;
 import org.gradle.internal.resources.DefaultResourceLockCoordinationService;
 import org.gradle.internal.resources.ResourceLockCoordinationService;
 import org.gradle.internal.scopeids.id.BuildInvocationScopeId;
+import org.gradle.internal.service.CloseableServiceRegistry;
+import org.gradle.internal.service.ServiceRegistrationProvider;
 import org.gradle.internal.service.ServiceRegistry;
 import org.gradle.internal.service.ServiceRegistryBuilder;
-import org.gradle.internal.service.scopes.BuildScopeServices;
 import org.gradle.internal.service.scopes.GradleUserHomeScopeServiceRegistry;
 import org.gradle.internal.session.BuildSessionState;
 import org.gradle.internal.session.CrossBuildSessionState;
@@ -82,6 +89,8 @@ import static org.gradle.internal.concurrent.CompositeStoppable.stoppable;
 
 public class ProjectBuilderImpl {
     private static ServiceRegistry globalServices;
+
+    private static final Logger LOGGER = Logging.getLogger(ProjectBuilderImpl.class);
 
     public Project createChildProject(String name, Project parent, @Nullable File projectDir) {
         ProjectInternal parentProject = (ProjectInternal) parent;
@@ -104,6 +113,19 @@ public class ProjectBuilderImpl {
     }
 
     public ProjectInternal createProject(String name, File inputProjectDir, @Nullable File gradleUserHomeDir) {
+
+        int currentMajor = Integer.parseInt(JavaVersion.current().getMajorVersion());
+        if (currentMajor < SupportedJavaVersions.FUTURE_MINIMUM_JAVA_VERSION) {
+            // We do not use a DeprecationLogger here since the logger is not initialized when using the ProjectBuilder.
+            LOGGER.warn("Executing Gradle on JVM versions 16 and lower has been deprecated. " +
+                "This will fail with an error in Gradle 9.0. " +
+                "Use JVM 17 or greater to execute Gradle. " +
+                "Projects can continue to use older JVM versions via toolchains. " +
+                "Consult the upgrading guide for further information: {}",
+                new DocumentationRegistry().getDocumentationFor("upgrading_version_8", "minimum_daemon_jvm_version")
+            );
+        }
+
         final File projectDir = prepareProjectDir(inputProjectDir);
         File userHomeDir = gradleUserHomeDir == null ? new File(projectDir, "userHome") : FileUtils.canonicalize(gradleUserHomeDir);
         StartParameterInternal startParameter = new StartParameterInternal();
@@ -129,7 +151,7 @@ public class ProjectBuilderImpl {
         BuildTreeState buildTreeState = new BuildTreeState(buildInvocationScopeId, buildSessionState.getServices(), modelServices);
         TestRootBuild build = new TestRootBuild(projectDir, startParameter, buildTreeState);
 
-        BuildScopeServices buildServices = build.getBuildServices();
+        CloseableServiceRegistry buildServices = build.getBuildServices();
         buildServices.get(BuildStateRegistry.class).attachRootBuild(build);
 
         // Take a root worker lease; this won't ever be released as ProjectBuilder has no lifecycle
@@ -203,6 +225,7 @@ public class ProjectBuilderImpl {
             .parent(LoggingServiceRegistry.newNestedLogging())
             .parent(NativeServices.getInstance())
             .provider(new TestGlobalScopeServices())
+            .provider(new BuildProcessScopeServices())
             .build();
     }
 
@@ -228,7 +251,7 @@ public class ProjectBuilderImpl {
 
     private static class TestRootBuild extends AbstractBuildState implements RootBuildState {
         private final GradleInternal gradle;
-        final BuildScopeServices buildServices;
+        final CloseableServiceRegistry buildServices;
 
         public TestRootBuild(File rootProjectDir, StartParameterInternal startParameter, BuildTreeState buildTreeState) {
             super(buildTreeState, BuildDefinition.fromStartParameter(startParameter, rootProjectDir, null), null);
@@ -237,13 +260,13 @@ public class ProjectBuilderImpl {
         }
 
         @Override
-        protected BuildScopeServices prepareServices(BuildTreeState buildTree, BuildDefinition buildDefinition, BuildModelControllerServices.Supplier supplier) {
-            final File homeDir = new File(buildDefinition.getBuildRootDir(), "gradleHome");
-            return new TestBuildScopeServices(buildTree.getServices(), homeDir, supplier);
+        protected ServiceRegistrationProvider prepareServicesProvider(BuildDefinition buildDefinition, BuildModelControllerServices.Supplier supplier) {
+            File homeDir = new File(buildDefinition.getBuildRootDir(), "gradleHome");
+            return new TestBuildScopeServices(homeDir, supplier);
         }
 
         @Override
-        public BuildScopeServices getBuildServices() {
+        public CloseableServiceRegistry getBuildServices() {
             return super.getBuildServices();
         }
 

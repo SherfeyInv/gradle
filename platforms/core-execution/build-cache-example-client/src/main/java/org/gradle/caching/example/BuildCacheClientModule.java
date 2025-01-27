@@ -19,16 +19,19 @@ package org.gradle.caching.example;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
 import com.google.inject.AbstractModule;
+import com.google.inject.Exposed;
+import com.google.inject.PrivateModule;
 import com.google.inject.Provides;
 import org.apache.commons.io.FileUtils;
 import org.gradle.api.internal.file.temp.DefaultTemporaryFileProvider;
 import org.gradle.api.internal.file.temp.TemporaryFileProvider;
 import org.gradle.cache.CacheCleanupStrategy;
-import org.gradle.cache.DefaultCacheCleanupStrategy;
+import org.gradle.cache.CacheCleanupStrategyFactory;
 import org.gradle.cache.FileLockManager;
 import org.gradle.cache.PersistentCache;
 import org.gradle.cache.internal.CacheFactory;
 import org.gradle.cache.internal.DefaultCacheBuilder;
+import org.gradle.cache.internal.DefaultCacheCleanupStrategyFactory;
 import org.gradle.cache.internal.DefaultCacheFactory;
 import org.gradle.cache.internal.DefaultFileLockManager;
 import org.gradle.cache.internal.LeastRecentlyUsedCacheCleanup;
@@ -54,12 +57,13 @@ import org.gradle.internal.concurrent.ExecutorFactory;
 import org.gradle.internal.file.FileAccessTimeJournal;
 import org.gradle.internal.file.FileAccessTracker;
 import org.gradle.internal.file.FileMetadataAccessor;
+import org.gradle.internal.file.FilePermissionHandler;
 import org.gradle.internal.file.StatStatistics;
 import org.gradle.internal.file.TreeType;
 import org.gradle.internal.file.impl.SingleDepthFileAccessTracker;
 import org.gradle.internal.file.nio.ModificationTimeFileAccessTimeJournal;
 import org.gradle.internal.file.nio.NioFileMetadataAccessor;
-import org.gradle.internal.file.nio.PosixJdk7FilePermissionHandler;
+import org.gradle.internal.file.nio.NioFilePermissions;
 import org.gradle.internal.hash.DefaultFileHasher;
 import org.gradle.internal.hash.DefaultStreamHasher;
 import org.gradle.internal.hash.FileHasher;
@@ -70,7 +74,6 @@ import org.gradle.internal.operations.BuildOperationListener;
 import org.gradle.internal.operations.BuildOperationProgressEventEmitter;
 import org.gradle.internal.operations.BuildOperationRunner;
 import org.gradle.internal.operations.BuildOperationState;
-import org.gradle.internal.operations.BuildOperationTimeSupplier;
 import org.gradle.internal.operations.CurrentBuildOperationRef;
 import org.gradle.internal.operations.DefaultBuildOperationIdFactory;
 import org.gradle.internal.operations.DefaultBuildOperationProgressEventEmitter;
@@ -81,9 +84,12 @@ import org.gradle.internal.operations.OperationProgressEvent;
 import org.gradle.internal.operations.OperationStartEvent;
 import org.gradle.internal.snapshot.SnapshotHierarchy;
 import org.gradle.internal.snapshot.impl.DirectorySnapshotterStatistics;
+import org.gradle.internal.time.Clock;
+import org.gradle.internal.time.Time;
 import org.gradle.internal.time.TimestampSuppliers;
 import org.gradle.internal.vfs.FileSystemAccess;
 import org.gradle.internal.vfs.VirtualFileSystem;
+import org.gradle.internal.vfs.impl.AbstractVirtualFileSystem;
 import org.gradle.internal.vfs.impl.DefaultFileSystemAccess;
 import org.gradle.internal.vfs.impl.DefaultSnapshotHierarchy;
 import org.slf4j.Logger;
@@ -97,13 +103,12 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
-import java.util.Collections;
 import java.util.function.Supplier;
 
 import static org.gradle.cache.FileLockManager.LockMode.OnDemand;
 import static org.gradle.internal.snapshot.CaseSensitivity.CASE_SENSITIVE;
 
-@SuppressWarnings("MethodMayBeStatic")
+@SuppressWarnings("CloseableProvides")
 class BuildCacheClientModule extends AbstractModule {
     private static final Logger LOGGER = LoggerFactory.getLogger(BuildCacheClientModule.class);
 
@@ -113,7 +118,11 @@ class BuildCacheClientModule extends AbstractModule {
         this.buildInvocationId = buildInvocationId;
     }
 
-    @SuppressWarnings("CloseableProvides")
+    @Override
+    protected void configure() {
+        install(new LocalBuildCacheModule());
+    }
+
     @Provides
     BuildCacheController createBuildCacheController(
         BuildCacheServicesConfiguration buildCacheServicesConfig,
@@ -143,6 +152,11 @@ class BuildCacheClientModule extends AbstractModule {
     }
 
     @Provides
+    CacheCleanupStrategyFactory createCacheCleanupStrategyFactory(BuildOperationRunner buildOperationRunner) {
+        return new DefaultCacheCleanupStrategyFactory(buildOperationRunner);
+    }
+
+    @Provides
     ExecutorFactory createExecutorFactory() {
         return new DefaultExecutorFactory();
     }
@@ -156,9 +170,9 @@ class BuildCacheClientModule extends AbstractModule {
             }
 
             @Override
-            public Iterable<InetAddress> getCommunicationAddresses() {
+            public InetAddress getCommunicationAddress() {
                 try {
-                    return Collections.singleton(InetAddress.getByName(null));
+                    return InetAddress.getByName(null);
                 } catch (UnknownHostException e) {
                     throw new RuntimeException(e);
                 }
@@ -184,40 +198,53 @@ class BuildCacheClientModule extends AbstractModule {
     }
 
     @Provides
-    CacheFactory createCacheFactory(FileLockManager fileLockManager, ExecutorFactory executorFactory, BuildOperationRunner buildOperationRunner) {
-        return new DefaultCacheFactory(fileLockManager, executorFactory, buildOperationRunner);
+    CacheFactory createCacheFactory(FileLockManager fileLockManager, ExecutorFactory executorFactory) {
+        return new DefaultCacheFactory(fileLockManager, executorFactory);
     }
 
-    @SuppressWarnings("CloseableProvides")
-    @Provides
-    LocalBuildCacheService createLocalBuildCacheService(
-        CacheCleanupStrategy cacheCleanupStrategy,
-        FileAccessTimeJournal fileAccessTimeJournal,
-        CacheFactory cacheFactory
-    ) throws IOException {
-        File target = Files.createTempDirectory("build-cache").toFile();
-        FileUtils.forceMkdir(target);
+    private static class LocalBuildCacheModule extends PrivateModule {
+        @Override
+        protected void configure() {
+        }
 
-        FileAccessTracker fileAccessTracker = new SingleDepthFileAccessTracker(fileAccessTimeJournal, target, 1);
+        @Provides
+        @Exposed
+        LocalBuildCacheService createLocalBuildCacheService(FileAccessTracker fileAccessTracker, PersistentCache persistentCache) {
+            return new DirectoryBuildCacheService(
+                persistentCache,
+                fileAccessTracker,
+                ".failed"
+            );
+        }
 
-        PersistentCache persistentCache = new DefaultCacheBuilder(cacheFactory, target)
-            .withCleanupStrategy(cacheCleanupStrategy)
-            .withDisplayName("Build cache")
-            .withInitialLockMode(OnDemand)
-            .open();
-        return new DirectoryBuildCacheService(
-            persistentCache,
-            fileAccessTracker,
-            ".failed"
-        );
+        @Provides
+        PersistentCache createPersistentCache(File buildCacheDir, CacheCleanupStrategy cacheCleanupStrategy, CacheFactory cacheFactory) {
+            return new DefaultCacheBuilder(cacheFactory, buildCacheDir)
+                .withCleanupStrategy(cacheCleanupStrategy)
+                .withDisplayName("Build cache")
+                .withInitialLockMode(OnDemand)
+                .open();
+        }
+
+        @Provides
+        FileAccessTracker createFileAccessTracker(File buildCacheDir, FileAccessTimeJournal fileAccessTimeJournal) {
+            return new SingleDepthFileAccessTracker(fileAccessTimeJournal, buildCacheDir, 1);
+        }
+
+        @Provides
+        File createBuildCacheDir() throws IOException {
+            File target = Files.createTempDirectory("build-cache").toFile();
+            FileUtils.forceMkdir(target);
+            return target;
+        }
     }
 
     @Provides
-    CacheCleanupStrategy createCacheCleanupStrategy(FileAccessTimeJournal fileAccessTimeJournal) {
+    CacheCleanupStrategy createCacheCleanupStrategy(FileAccessTimeJournal fileAccessTimeJournal, CacheCleanupStrategyFactory factory) {
         SingleDepthFilesFinder filesFinder = new SingleDepthFilesFinder(1);
         Supplier<Long> removeUnusedEntriesOlderThan = TimestampSuppliers.daysAgo(1);
         LeastRecentlyUsedCacheCleanup cleanupAction = new LeastRecentlyUsedCacheCleanup(filesFinder, fileAccessTimeJournal, removeUnusedEntriesOlderThan);
-        return DefaultCacheCleanupStrategy.from(cleanupAction);
+        return factory.daily(cleanupAction);
     }
 
     @Provides
@@ -237,7 +264,7 @@ class BuildCacheClientModule extends AbstractModule {
     @Provides
     BuildOperationRunner createBuildOperationRunner(
         CurrentBuildOperationRef currentBuildOperationRef,
-        BuildOperationTimeSupplier timeSupplier,
+        Clock timeSupplier,
         BuildOperationIdFactory buildOperationIdFactory,
         DefaultBuildOperationRunner.BuildOperationExecutionListenerFactory buildOperationExecutionListenerFactory
     ) {
@@ -286,7 +313,7 @@ class BuildCacheClientModule extends AbstractModule {
 
     @Provides
     BuildOperationProgressEventEmitter createBuildOperationProgressEventEmitter(
-        BuildOperationTimeSupplier timeSupplier,
+        Clock timeSupplier,
         CurrentBuildOperationRef currentBuildOperationRef,
         BuildOperationListener buildOperationListener
     ) {
@@ -326,8 +353,8 @@ class BuildCacheClientModule extends AbstractModule {
     }
 
     @Provides
-    BuildOperationTimeSupplier createTimeSupplier() {
-        return System::currentTimeMillis;
+    Clock createTimeSupplier() {
+        return Time.clock();
     }
 
     @Provides
@@ -336,7 +363,7 @@ class BuildCacheClientModule extends AbstractModule {
         StreamHasher streamHasher,
         Interner<String> stringInterner
     ) {
-        PosixJdk7FilePermissionHandler permissionHandler = new PosixJdk7FilePermissionHandler();
+        FilePermissionHandler permissionHandler = NioFilePermissions.createFilePermissionHandler();
         FilePermissionAccess filePermissionAccess = new FilePermissionAccess() {
             @Override
             public int getUnixMode(File f) {
@@ -433,7 +460,20 @@ class BuildCacheClientModule extends AbstractModule {
     VirtualFileSystem createVirtualFileSystem() {
         // TODO Figure out case sensitivity properly
         SnapshotHierarchy root = DefaultSnapshotHierarchy.empty(CASE_SENSITIVE);
-        return new ExampleBuildCacheClient.CustomVirtualFileSystem(root);
+        return new CustomVirtualFileSystem(root);
+    }
+
+    // TODO Make AbstractVirtualFileSystem into DefaultVirtualFileSystem, and wrap it with the
+    //      watching/non-watching implementations so DefaultVirtualFileSystem can be reused here
+    private static class CustomVirtualFileSystem extends AbstractVirtualFileSystem {
+        protected CustomVirtualFileSystem(SnapshotHierarchy root) {
+            super(root);
+        }
+
+        @Override
+        protected SnapshotHierarchy updateNotifyingListeners(UpdateFunction updateFunction) {
+            return updateFunction.update(SnapshotHierarchy.NodeDiffListener.NOOP);
+        }
     }
 
     @Provides

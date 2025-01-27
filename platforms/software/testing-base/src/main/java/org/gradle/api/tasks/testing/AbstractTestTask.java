@@ -16,12 +16,11 @@
 
 package org.gradle.api.tasks.testing;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import groovy.lang.Closure;
 import groovy.lang.DelegatesTo;
 import org.gradle.api.Action;
-import org.gradle.api.file.DeleteSpec;
+import org.gradle.api.UncheckedIOException;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.FileSystemOperations;
 import org.gradle.api.internal.ConventionTask;
@@ -47,7 +46,7 @@ import org.gradle.api.internal.tasks.testing.logging.TestCountLogger;
 import org.gradle.api.internal.tasks.testing.logging.TestEventLogger;
 import org.gradle.api.internal.tasks.testing.logging.TestExceptionFormatter;
 import org.gradle.api.internal.tasks.testing.logging.TestWorkerProgressListener;
-import org.gradle.api.internal.tasks.testing.report.DefaultTestReport;
+import org.gradle.api.internal.tasks.testing.report.HtmlTestReport;
 import org.gradle.api.internal.tasks.testing.report.TestReporter;
 import org.gradle.api.internal.tasks.testing.results.StateTrackingTestResultProcessor;
 import org.gradle.api.internal.tasks.testing.results.TestListenerAdapter;
@@ -64,12 +63,14 @@ import org.gradle.api.tasks.options.Option;
 import org.gradle.api.tasks.testing.logging.TestLogging;
 import org.gradle.api.tasks.testing.logging.TestLoggingContainer;
 import org.gradle.internal.Cast;
+import org.gradle.internal.Describables;
 import org.gradle.internal.concurrent.CompositeStoppable;
 import org.gradle.internal.deprecation.DeprecationLogger;
 import org.gradle.internal.dispatch.Dispatch;
 import org.gradle.internal.dispatch.MethodInvocation;
 import org.gradle.internal.event.ListenerBroadcast;
 import org.gradle.internal.event.ListenerManager;
+import org.gradle.internal.instrumentation.api.annotations.ToBeReplacedByLazyProperty;
 import org.gradle.internal.logging.ConsoleRenderer;
 import org.gradle.internal.logging.progress.ProgressLogger;
 import org.gradle.internal.logging.progress.ProgressLoggerFactory;
@@ -85,6 +86,8 @@ import org.gradle.work.DisableCachingByDefault;
 
 import javax.inject.Inject;
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -181,7 +184,7 @@ public abstract class AbstractTestTask extends ConventionTask implements Verific
         testOutputListenerSubscriptions = new BroadcastSubscriptions<TestOutputListener>(TestOutputListener.class);
         binaryResultsDirectory = getProject().getObjects().directoryProperty();
 
-        reports = getProject().getObjects().newInstance(DefaultTestTaskReports.class, this);
+        reports = getProject().getObjects().newInstance(DefaultTestTaskReports.class, Describables.quoted("Task", getIdentityPath()));
         reports.getJunitXml().getRequired().set(true);
         reports.getHtml().getRequired().set(true);
 
@@ -242,7 +245,6 @@ public abstract class AbstractTestTask extends ConventionTask implements Verific
      */
     protected abstract TestExecutionSpec createTestExecutionSpec();
 
-    @VisibleForTesting
     void setTestReporter(TestReporter testReporter) {
         this.testReporter = testReporter;
     }
@@ -322,6 +324,7 @@ public abstract class AbstractTestTask extends ConventionTask implements Verific
      */
     @Internal
     @Override
+    @ToBeReplacedByLazyProperty
     public boolean getIgnoreFailures() {
         return ignoreFailures;
     }
@@ -415,7 +418,7 @@ public abstract class AbstractTestTask extends ConventionTask implements Verific
      * apply plugin: 'java'
      *
      * test.testLogging {
-     *     exceptionFormat "full"
+     *     exceptionFormat = "full"
      * }
      * </pre>
      *
@@ -423,8 +426,7 @@ public abstract class AbstractTestTask extends ConventionTask implements Verific
      *
      * @return this
      */
-    @Internal
-    // TODO:LPTR Should be @Nested with @Console inside
+    @Nested
     public TestLoggingContainer getTestLogging() {
         return testLogging;
     }
@@ -479,29 +481,31 @@ public abstract class AbstractTestTask extends ConventionTask implements Verific
 
         final File binaryResultsDir = getBinaryResultsDirectory().getAsFile().get();
         FileSystemOperations fs = getFileSystemOperations();
-        fs.delete(new Action<DeleteSpec>() {
-            @Override
-            public void execute(DeleteSpec spec) {
-                spec.delete(binaryResultsDir);
-            }
-        });
-        binaryResultsDir.mkdirs();
+        fs.delete(spec -> spec.delete(binaryResultsDir));
 
-        Map<String, TestClassResult> results = new HashMap<String, TestClassResult>();
+        try {
+            Files.createDirectories(binaryResultsDir.toPath());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
+        // Record test events to `results`, and test outputs to `testOutputStore`
+        Map<String, TestClassResult> results = new HashMap<>();
         TestOutputStore testOutputStore = new TestOutputStore(binaryResultsDir);
-
         TestOutputStore.Writer outputWriter = testOutputStore.writer();
         TestReportDataCollector testReportDataCollector = new TestReportDataCollector(results, outputWriter);
-
         addTestListener(testReportDataCollector);
         addTestOutputListener(testReportDataCollector);
 
+        // Log number of completed, skipped, and failed tests to console, and update live as count changes
         TestCountLogger testCountLogger = new TestCountLogger(getProgressLoggerFactory());
         addTestListener(testCountLogger);
 
+        // Adapt all listeners registered with addTestListener() and addTestOutputListener() to TestListenerInternal
         ListenerBroadcast<TestListenerInternal> testListenerInternalBroadcaster = getListenerManager().createAnonymousBroadcaster(TestListenerInternal.class);
         testListenerInternalBroadcaster.add(new TestListenerAdapter(testListenerSubscriptions.get().getSource(), testOutputListenerSubscriptions.get().getSource()));
 
+        // Log to the console which tests are currently executing, and update live as current tests change
         ProgressLogger parentProgressLogger = getProgressLoggerFactory().newOperation(AbstractTestTask.class);
         parentProgressLogger.setDescription("Test Execution");
         parentProgressLogger.started();
@@ -527,8 +531,10 @@ public abstract class AbstractTestTask extends ConventionTask implements Verific
             outputWriter.close();
         }
 
+        // Write binary results to disk
         new TestResultSerializer(binaryResultsDir).write(results.values());
 
+        // Generate HTML and XML reports
         createReporting(results, testOutputStore);
 
         handleCollectedResults(testCountLogger);
@@ -594,9 +600,6 @@ public abstract class AbstractTestTask extends ConventionTask implements Verific
         TestResultsProvider testResultsProvider = new InMemoryTestResultsProvider(results.values(), testOutputStore);
 
         try {
-            if (testReporter == null) {
-                testReporter = new DefaultTestReport(getBuildOperationRunner(), getBuildOperationExecutor());
-            }
 
             JUnitXmlReport junitXml = reports.getJunitXml();
             if (junitXml.getRequired().get()) {
@@ -620,7 +623,13 @@ public abstract class AbstractTestTask extends ConventionTask implements Verific
             if (!html.getRequired().get()) {
                 getLogger().info("Test report disabled, omitting generation of the HTML test report.");
             } else {
-                testReporter.generateReport(testResultsProvider, html.getOutputLocation().getAsFile().getOrNull());
+                File htmlReportDestinationDir = html.getOutputLocation().getAsFile().getOrNull();
+                if (testReporter != null) {
+                    testReporter.generateReport(testResultsProvider, htmlReportDestinationDir);
+                } else {
+                    HtmlTestReport htmlReport = new HtmlTestReport(getBuildOperationRunner(), getBuildOperationExecutor());
+                    htmlReport.generateReport(testResultsProvider, htmlReportDestinationDir);
+                }
             }
         } finally {
             CompositeStoppable.stoppable(testResultsProvider).stop();

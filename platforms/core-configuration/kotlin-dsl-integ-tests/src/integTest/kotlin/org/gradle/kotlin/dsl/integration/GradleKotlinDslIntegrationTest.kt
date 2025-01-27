@@ -593,7 +593,7 @@ class GradleKotlinDslIntegrationTest : AbstractKotlinIntegrationTest() {
             require(uri("settings.gradle.kts").toString().endsWith("settings.gradle.kts"), { "uri(path)" })
             require(file("settings.gradle.kts").isFile, { "file(path)" })
             require(files("settings.gradle.kts").files.isNotEmpty(), { "files(paths)" })
-            require(fileTree(".").contains(file("settings.gradle.kts")), { "fileTree(path)" })
+            require(fileTree(".") { include("*.kts") }.contains(file("settings.gradle.kts")), { "fileTree(path)" })
             require(copySpec {} != null, { "copySpec {}" })
             require(mkdir("some").isDirectory, { "mkdir(path)" })
             require(delete("some"), { "delete(path)" })
@@ -1059,6 +1059,29 @@ class GradleKotlinDslIntegrationTest : AbstractKotlinIntegrationTest() {
         assertThat(
             build("-q", "build").output,
             containsString("it works!")
+        )
+    }
+
+    @Test
+    fun `can use project layout`() {
+        withProjectRoot(newDir("project")) {
+            withBuildScript(
+                """
+                println("Settings dir: " + layout.settingsDirectory)
+                println("Project dir: " + layout.projectDirectory)
+                """
+            )
+        }
+
+        withSettings("""include("project")""")
+
+        val output = build("-q", "build").output
+        assertThat(
+            output,
+            allOf(
+                containsString("Settings dir: $testDirectory"),
+                containsString("Project dir: ${testDirectory.file("project")}")
+            )
         )
     }
 

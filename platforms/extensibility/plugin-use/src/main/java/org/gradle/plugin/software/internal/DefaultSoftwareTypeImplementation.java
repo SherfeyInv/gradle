@@ -18,22 +18,31 @@ package org.gradle.plugin.software.internal;
 
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
+import org.gradle.api.initialization.Settings;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
  * Represents a resolved software type implementation.  Used by declarative DSL to understand which model types should be exposed for
  * which software types.
  */
-public class DefaultSoftwareTypeImplementation implements SoftwareTypeImplementation {
+public class DefaultSoftwareTypeImplementation<T> implements SoftwareTypeImplementation<T> {
     private final String softwareType;
-    private final Class<?> modelPublicType;
-    private final Class<? extends Plugin<?>> pluginClass;
+    private final Class<? extends T> modelPublicType;
+    private final Class<? extends Plugin<Project>> pluginClass;
+    private final Class<? extends Plugin<Settings>> registeringPluginClass;
+    private final List<ModelDefault<?>> defaults = new ArrayList<>();
 
-    public DefaultSoftwareTypeImplementation(String softwareType, Class<?> modelPublicType, Class<? extends Plugin<Project>> pluginClass) {
+    public DefaultSoftwareTypeImplementation(String softwareType,
+                                             Class<? extends T> modelPublicType,
+                                             Class<? extends Plugin<Project>> pluginClass,
+                                             Class<? extends Plugin<Settings>> registeringPluginClass) {
         this.softwareType = softwareType;
         this.modelPublicType = modelPublicType;
         this.pluginClass = pluginClass;
+        this.registeringPluginClass = registeringPluginClass;
     }
 
     @Override
@@ -42,13 +51,31 @@ public class DefaultSoftwareTypeImplementation implements SoftwareTypeImplementa
     }
 
     @Override
-    public Class<?> getModelPublicType() {
+    public Class<? extends T> getModelPublicType() {
         return modelPublicType;
     }
 
     @Override
-    public Class<? extends Plugin<?>> getPluginClass() {
+    public Class<? extends Plugin<Project>> getPluginClass() {
         return pluginClass;
+    }
+
+    @Override
+    public Class<? extends Plugin<Settings>> getRegisteringPluginClass() {
+        return registeringPluginClass;
+    }
+
+    @Override
+    public void addModelDefault(ModelDefault<?> modelDefault) {
+        defaults.add(modelDefault);
+    }
+
+    @Override
+    public <V extends ModelDefault.Visitor<?>> void visitModelDefaults(Class<? extends ModelDefault<V>> type, V visitor) {
+        defaults.stream()
+            .filter(type::isInstance)
+            .map(type::cast)
+            .forEach(modelDefault -> modelDefault.visit(visitor));
     }
 
     @Override
@@ -59,7 +86,7 @@ public class DefaultSoftwareTypeImplementation implements SoftwareTypeImplementa
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        DefaultSoftwareTypeImplementation that = (DefaultSoftwareTypeImplementation) o;
+        DefaultSoftwareTypeImplementation<?> that = (DefaultSoftwareTypeImplementation<?>) o;
         return Objects.equals(softwareType, that.softwareType) && Objects.equals(modelPublicType, that.modelPublicType) && Objects.equals(pluginClass, that.pluginClass);
     }
 

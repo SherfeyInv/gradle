@@ -17,12 +17,12 @@
 package org.gradle.integtests.tooling.r86
 
 import org.gradle.integtests.fixtures.GroovyBuildScriptLanguage
+import org.gradle.integtests.tooling.fixture.ProblemsApiGroovyScriptUtils
 import org.gradle.integtests.tooling.fixture.TargetGradleVersion
 import org.gradle.integtests.tooling.fixture.ToolingApiSpecification
 import org.gradle.integtests.tooling.fixture.ToolingApiVersion
 import org.gradle.integtests.tooling.r85.ProblemProgressEventCrossVersionTest.ProblemProgressListener
 import org.gradle.tooling.BuildException
-import org.gradle.util.GradleVersion
 
 @ToolingApiVersion("=8.6")
 @TargetGradleVersion(">=8.6")
@@ -97,8 +97,8 @@ class ProblemProgressEventCrossVersionTest extends ToolingApiSpecification {
         given:
         withReportProblemTask """
             for(int i = 0; i < 10; i++) {
-                problems.forNamespace("org.example.plugin").reporting {
-                    it.${targetVersion < GradleVersion.version("8.8") ? 'label("The \'standard-plugin\' is deprecated").category("deprecation", "plugin")' : 'id("adhoc-deprecation", "The \'standard-plugin\' is deprecated")' }
+                getProblems().${ProblemsApiGroovyScriptUtils.report(targetVersion)} {
+                    it.${ProblemsApiGroovyScriptUtils.id(targetVersion, "adhoc-deprecation", "The 'standard-plugin' is deprecated")}
                         .severity(Severity.WARNING)
                         .solution("Please use 'standard-plugin-2' instead of this plugin")
                     }
@@ -118,11 +118,12 @@ class ProblemProgressEventCrossVersionTest extends ToolingApiSpecification {
         problems.size() == 0
     }
 
+    @TargetGradleVersion(">=8.6 <8.9")
     def "Problems expose details via Tooling API events"() {
         given:
         withReportProblemTask """
-            getProblems().forNamespace("org.example.plugin").reporting {
-                it.${targetVersion < GradleVersion.version("8.8") ? 'label("shortProblemMessage").category("main", "sub", "id")' : 'id("id", "shortProblemMessage")' }
+            getProblems().${ProblemsApiGroovyScriptUtils.report(targetVersion)} {
+                it.${ProblemsApiGroovyScriptUtils.id(targetVersion, 'id', 'shortProblemMessage')}
                 $documentationConfig
                 .lineInFileLocation("/tmp/foo", 1, 2, 3)
                 $detailsConfig
@@ -133,7 +134,6 @@ class ProblemProgressEventCrossVersionTest extends ToolingApiSpecification {
         """
 
         when:
-
         def problems = runTask()
 
         then:
@@ -148,8 +148,8 @@ class ProblemProgressEventCrossVersionTest extends ToolingApiSpecification {
     def "Problems expose file locations with file path only"() {
         given:
         withReportProblemTask """
-            getProblems().forNamespace("org.example.plugin").reporting {
-                it.${targetVersion < GradleVersion.version("8.8") ? 'label("shortProblemMessage").category("main", "sub", "id")' : 'id("id", "shortProblemMessage")' }
+            getProblems().${ProblemsApiGroovyScriptUtils.report(targetVersion)} {
+                it.${ProblemsApiGroovyScriptUtils.id(targetVersion, "id", "shortProblemMessage")}
                 .fileLocation("/tmp/foo")
             }
         """
@@ -164,8 +164,8 @@ class ProblemProgressEventCrossVersionTest extends ToolingApiSpecification {
     def "Problems expose file locations with path and line"() {
         given:
         withReportProblemTask """
-            getProblems().forNamespace("org.example.plugin").reporting {
-                it.${targetVersion < GradleVersion.version("8.8") ? 'label("shortProblemMessage").category("main", "sub", "id")' : 'id("id", "shortProblemMessage")' }
+            getProblems().${ProblemsApiGroovyScriptUtils.report(targetVersion)} {
+                it.${ProblemsApiGroovyScriptUtils.id(targetVersion, "id", "shortProblemMessage")}
                 .lineInFileLocation("/tmp/foo", 1)
             }
         """
@@ -181,8 +181,8 @@ class ProblemProgressEventCrossVersionTest extends ToolingApiSpecification {
     def "Problems expose file locations with path, line and column"() {
         given:
         withReportProblemTask """
-                getProblems().forNamespace("org.example.plugin").reporting {
-                    it.${targetVersion < GradleVersion.version("8.8") ? 'label("shortProblemMessage").category("main", "sub", "id")' : 'id("id", "shortProblemMessage")' }
+                getProblems().${ProblemsApiGroovyScriptUtils.report(targetVersion)} {
+                    it.${ProblemsApiGroovyScriptUtils.id(targetVersion, "id", "shortProblemMessage")}
                     .lineInFileLocation("/tmp/foo", 1, 2)
                 }
         """
@@ -197,8 +197,8 @@ class ProblemProgressEventCrossVersionTest extends ToolingApiSpecification {
     def "Problems expose file locations with path, line, column and length"() {
         given:
         withReportProblemTask """
-            getProblems().forNamespace("org.example.plugin").reporting {
-                it.${targetVersion < GradleVersion.version("8.8") ? 'label("shortProblemMessage").category("main", "sub", "id")' : 'id("id", "shortProblemMessage")' }
+            getProblems().${ProblemsApiGroovyScriptUtils.report(targetVersion)} {
+                it.${ProblemsApiGroovyScriptUtils.id(targetVersion, "id", "shortProblemMessage")}
                 .lineInFileLocation("/tmp/foo", 1, 2, 3)
             }
         """
@@ -213,8 +213,8 @@ class ProblemProgressEventCrossVersionTest extends ToolingApiSpecification {
     def "Problems expose file locations with offset and length"() {
         given:
         withReportProblemTask """
-            getProblems().forNamespace("org.example.plugin").reporting {
-                it.${targetVersion < GradleVersion.version("8.8") ? 'label("shortProblemMessage").category("main", "sub", "id")' : 'id("id", "shortProblemMessage")' }
+            getProblems().${ProblemsApiGroovyScriptUtils.report(targetVersion)} {
+                it.${ProblemsApiGroovyScriptUtils.id(targetVersion, "id", "shortProblemMessage")}
                 .offsetInFileLocation("/tmp/foo", 20, 10)
             }
         """

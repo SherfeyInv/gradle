@@ -14,12 +14,12 @@ description = """Verifies that Gradle code complies with architectural rules.
 """.trimMargin()
 
 dependencies {
-    currentClasspath(project(":distributions-full"))
-    testImplementation(project(":base-services"))
-    testImplementation(project(":model-core"))
-    testImplementation(project(":file-temp"))
-    testImplementation(project(":core"))
-    testImplementation(libs.futureKotlin("stdlib"))
+    currentClasspath(projects.distributionsFull)
+    testImplementation(projects.baseServices)
+    testImplementation(projects.modelCore)
+    testImplementation(projects.fileTemp)
+    testImplementation(projects.core)
+    testImplementation(libs.kotlinStdlib)
     testImplementation(libs.inject)
 
     testImplementation(libs.archunitJunit5)
@@ -27,24 +27,24 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation(libs.assertj)
 
-    testRuntimeOnly(project(":distributions-full"))
+    testRuntimeOnly(projects.distributionsFull)
 }
 
-val acceptedApiChangesFile = layout.projectDirectory.file("src/changes/accepted-public-api-changes.json")
+val acceptedApiChangesDirectory = layout.projectDirectory.dir("src/changes/accepted-changes")
 
 val verifyAcceptedApiChangesOrdering = tasks.register<gradlebuild.binarycompatibility.AlphabeticalAcceptedApiChangesTask>("verifyAcceptedApiChangesOrdering") {
     group = "verification"
     description = "Ensures the accepted api changes file is kept alphabetically ordered to make merging changes to it easier"
-    apiChangesFile = acceptedApiChangesFile
+    apiChangesDirectory = acceptedApiChangesDirectory
 }
 
 val sortAcceptedApiChanges = tasks.register<gradlebuild.binarycompatibility.SortAcceptedApiChangesTask>("sortAcceptedApiChanges") {
     group = "verification"
     description = "Sort the accepted api changes file alphabetically"
-    apiChangesFile = acceptedApiChangesFile
+    apiChangesDirectory = acceptedApiChangesDirectory
 }
 
-val ruleStoreDir = layout.projectDirectory.dir("src/changes/archunit_store")
+val ruleStoreDir = layout.projectDirectory.dir("src/changes/archunit-store")
 
 tasks {
     val reorderRuleStore by registering(ReorderArchUnitRulesTask::class) {

@@ -21,9 +21,12 @@ import org.gradle.api.internal.DocumentationRegistry;
 import org.gradle.api.internal.cache.CacheConfigurationsInternal;
 import org.gradle.api.logging.Logger;
 import org.gradle.api.logging.Logging;
+import org.gradle.cache.CacheCleanupStrategyFactory;
 import org.gradle.cache.IndexedCache;
 import org.gradle.cache.UnscopedCacheBuilderFactory;
-import org.gradle.cache.internal.UsedGradleVersions;
+import org.gradle.internal.service.scopes.Scope;
+import org.gradle.internal.service.scopes.ServiceScope;
+import org.gradle.internal.versionedcache.UsedGradleVersions;
 import org.gradle.cache.scopes.GlobalScopedCacheBuilderFactory;
 import org.gradle.internal.Factory;
 import org.gradle.internal.file.FileAccessTimeJournal;
@@ -50,11 +53,11 @@ public class DefaultArtifactCaches implements ArtifactCachesProvider {
             UnscopedCacheBuilderFactory unscopedCacheBuilderFactory,
             WritableArtifactCacheLockingParameters params,
             DocumentationRegistry documentationRegistry,
-            CacheConfigurationsInternal cacheConfigurations
-                                 ) {
+            CacheConfigurationsInternal cacheConfigurations,
+            CacheCleanupStrategyFactory cacheCleanupStrategyFactory) {
         writableCacheMetadata = new DefaultArtifactCacheMetadata(cacheBuilderFactory);
         writableCacheAccessCoordinator = new LateInitWritableArtifactCacheLockingAccessCoordinator(() -> {
-            return new WritableArtifactCacheLockingAccessCoordinator(unscopedCacheBuilderFactory, writableCacheMetadata, params.getFileAccessTimeJournal(), params.getUsedGradleVersions(), cacheConfigurations);
+            return new WritableArtifactCacheLockingAccessCoordinator(unscopedCacheBuilderFactory, writableCacheMetadata, params.getFileAccessTimeJournal(), params.getUsedGradleVersions(), cacheConfigurations, cacheCleanupStrategyFactory);
         });
         String roCache = System.getenv(READONLY_CACHE_ENV_VAR);
         if (StringUtils.isNotEmpty(roCache)) {
@@ -127,6 +130,7 @@ public class DefaultArtifactCaches implements ArtifactCachesProvider {
         }
     }
 
+    @ServiceScope(Scope.UserHome.class)
     public interface WritableArtifactCacheLockingParameters {
         FileAccessTimeJournal getFileAccessTimeJournal();
 

@@ -21,6 +21,7 @@ import org.gradle.api.artifacts.result.ResolvedArtifactResult;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.internal.artifacts.ivyservice.ResolvedArtifactCollectingVisitor;
 import org.gradle.api.internal.artifacts.ivyservice.resolveengine.artifact.ArtifactVisitor;
+import org.gradle.api.internal.file.FileCollectionInternal;
 import org.gradle.api.internal.provider.BuildableBackedProvider;
 import org.gradle.api.provider.Provider;
 import org.gradle.internal.Cast;
@@ -42,13 +43,13 @@ public class DefaultArtifactCollection implements ArtifactCollectionInternal {
         this.lenient = lenient;
         this.result = calculatedValueFactory.create(resolutionHost.displayName("files"), () -> {
             ResolvedArtifactCollectingVisitor visitor = new ResolvedArtifactCollectingVisitor();
-            fileCollection.getSelectedArtifacts().visitArtifacts(visitor, lenient);
+            fileCollection.getArtifacts().visitArtifacts(visitor, lenient);
 
             Set<ResolvedArtifactResult> artifactResults = visitor.getArtifacts();
             Set<Throwable> failures = visitor.getFailures();
 
             if (!lenient) {
-                resolutionHost.rethrowFailure("artifacts", failures);
+                resolutionHost.rethrowFailuresAndReportProblems("artifacts", failures);
             }
             return new ArtifactSetResult(artifactResults, failures);
         });
@@ -77,7 +78,7 @@ public class DefaultArtifactCollection implements ArtifactCollectionInternal {
 
     @Override
     public Provider<Set<ResolvedArtifactResult>> getResolvedArtifacts() {
-        return new BuildableBackedProvider<>(getArtifactFiles(), Cast.uncheckedCast(Set.class), new ArtifactCollectionResolvedArtifactsFactory(this));
+        return new BuildableBackedProvider<>((FileCollectionInternal) getArtifactFiles(), Cast.uncheckedCast(Set.class), new ArtifactCollectionResolvedArtifactsFactory(this));
     }
 
     @Override
@@ -95,7 +96,7 @@ public class DefaultArtifactCollection implements ArtifactCollectionInternal {
     @Override
     public void visitArtifacts(ArtifactVisitor visitor) {
         // TODO - if already resolved, use the results
-        fileCollection.getSelectedArtifacts().visitArtifacts(visitor, lenient);
+        fileCollection.getArtifacts().visitArtifacts(visitor, lenient);
     }
 
     private void ensureResolved() {
