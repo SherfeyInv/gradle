@@ -16,12 +16,11 @@
 
 package org.gradle.process.internal.worker.child;
 
-import com.google.common.collect.Lists;
-import org.gradle.api.Action;
 import org.gradle.api.GradleException;
 import org.gradle.api.JavaVersion;
 import org.gradle.api.internal.ClassPathProvider;
 import org.gradle.api.internal.classpath.ModuleRegistry;
+import org.gradle.api.internal.jvm.JavaVersionParser;
 import org.gradle.api.specs.Spec;
 import org.gradle.cache.FileLockManager;
 import org.gradle.cache.PersistentCache;
@@ -42,8 +41,9 @@ import org.gradle.internal.reflect.NoSuchMethodException;
 import org.gradle.internal.reflect.NoSuchPropertyException;
 import org.gradle.internal.reflect.PropertyAccessor;
 import org.gradle.internal.reflect.PropertyMutator;
+import org.gradle.internal.service.scopes.Scope;
+import org.gradle.internal.service.scopes.ServiceScope;
 import org.gradle.internal.stream.EncodedStream;
-import org.gradle.internal.util.Trie;
 import org.gradle.process.internal.worker.GradleWorkerMain;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -62,13 +62,15 @@ import java.io.InputStream;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import static org.gradle.process.internal.worker.child.ApplicationClassesInSystemClassLoaderWorkerImplementationFactory.WORKER_GRADLE_REMAPPING_PREFIX;
+
+@ServiceScope(Scope.UserHome.class)
 public class WorkerProcessClassPathProvider implements ClassPathProvider {
     private static final Logger LOGGER = LoggerFactory.getLogger(WorkerProcessClassPathProvider.class);
     private final GlobalScopedCacheBuilderFactory cacheBuilderFactory;
@@ -86,27 +88,37 @@ public class WorkerProcessClassPathProvider implements ClassPathProvider {
         "gradle-base-services",
         "gradle-enterprise-logging",
         "gradle-enterprise-workers",
+        "gradle-classloaders",
         "gradle-cli",
         "gradle-concurrent",
+        "gradle-functional",
         "gradle-io",
         "gradle-wrapper-shared",
         "gradle-native",
         "gradle-dependency-management",
         "gradle-workers",
-        "gradle-worker-processes",
+        "gradle-worker-main",
+        "gradle-build-process-services",
         "gradle-problems-api",
+        "gradle-process-memory-services",
         "gradle-process-services",
         "gradle-persistent-cache",
         "gradle-model-core",
+        "gradle-model-reflect",
         "gradle-jvm-services",
         "gradle-files",
         "gradle-file-collections",
+        "gradle-file-operations",
         "gradle-file-temp",
         "gradle-hashing",
+        "gradle-service-lookup",
+        "gradle-service-provider",
+        "gradle-service-registry-builder",
+        "gradle-service-registry-impl",
         "gradle-snapshots",
         "gradle-serialization",
         "gradle-time",
-        "gradle-java-language-extensions",
+        "gradle-stdlib-java-extensions",
         "gradle-build-operations"
     };
 
@@ -122,44 +134,6 @@ public class WorkerProcessClassPathProvider implements ClassPathProvider {
         "groovy-ant",
         "groovy-json",
         "groovy-xml",
-        "asm"
-    };
-
-    // This list is ordered by the number of classes we load from each jar descending
-    private static final String[] WORKER_OPTIMIZED_LOADING_ORDER = new String[]{
-        "gradle-base-asm",
-        "gradle-base-services",
-        "guava",
-        "gradle-messaging",
-        "gradle-model-core",
-        "gradle-logging",
-        "gradle-core-api",
-        "gradle-workers",
-        "native-platform",
-        "gradle-core",
-        "gradle-native",
-        "gradle-file-collections",
-        "gradle-language-java",
-        "gradle-worker-processes",
-        "gradle-process-services",
-        "slf4j-api",
-        "gradle-language-jvm",
-        "gradle-persistent-cache",
-        "gradle-files",
-        "gradle-hashing",
-        "gradle-snapshots",
-        "gradle-worker",
-        "groovy",
-        "groovy-ant",
-        "groovy-json",
-        "groovy-templates",
-        "groovy-xml",
-        "kryo",
-        "gradle-platform-base",
-        "gradle-cli",
-        "jul-to-slf4j",
-        "javax.inject",
-        "gradle-jvm-services",
         "asm"
     };
 
@@ -211,32 +185,10 @@ public class WorkerProcessClassPathProvider implements ClassPathProvider {
             for (String externalModule : RUNTIME_EXTERNAL_MODULES) {
                 classpath = classpath.plus(moduleRegistry.getExternalModule(externalModule).getImplementationClasspath());
             }
-            classpath = optimizeForClassloading(classpath);
             return classpath;
         }
 
         return null;
-    }
-
-    private static ClassPath optimizeForClassloading(ClassPath classpath) {
-        ClassPath optimizedForLoading = ClassPath.EMPTY;
-        List<File> optimizedFiles = Lists.newArrayListWithCapacity(WORKER_OPTIMIZED_LOADING_ORDER.length);
-        List<File> remainder = Lists.newArrayList(classpath.getAsFiles());
-        for (String module : WORKER_OPTIMIZED_LOADING_ORDER) {
-            Iterator<File> asFiles = remainder.iterator();
-            while (asFiles.hasNext()) {
-                File file = asFiles.next();
-                if (file.getName().startsWith(module)) {
-                    optimizedFiles.add(file);
-                    asFiles.remove();
-                }
-            }
-            if (remainder.isEmpty()) {
-                break;
-            }
-        }
-        classpath = optimizedForLoading.plus(optimizedFiles).plus(remainder);
-        return classpath;
     }
 
     private static File jarFile(PersistentCache cache) {
@@ -269,6 +221,10 @@ public class WorkerProcessClassPathProvider implements ClassPathProvider {
                 EncodedStream.EncodedInput.class,
                 ClassLoaderUtils.class,
                 FilteringClassLoader.class,
+                FilteringClassLoader.Action.class,
+                FilteringClassLoader.Trie.Builder.class,
+                FilteringClassLoader.Trie.class,
+                FilteringClassLoader.TrieSet.class,
                 ClassLoaderHierarchy.class,
                 ClassLoaderVisitor.class,
                 ClassLoaderSpec.class,
@@ -283,9 +239,8 @@ public class WorkerProcessClassPathProvider implements ClassPathProvider {
                 PropertyMutator.class,
                 Factory.class,
                 Spec.class,
-                Action.class,
-                Trie.class,
-                JavaVersion.class);
+                JavaVersion.class,
+                JavaVersionParser.class);
             Set<Class<?>> result = new HashSet<Class<?>>(classes);
             for (Class<?> klass : classes) {
                 result.addAll(Arrays.asList(klass.getDeclaredClasses()));
@@ -321,7 +276,7 @@ public class WorkerProcessClassPathProvider implements ClassPathProvider {
             @Override
             public String map(String typeName) {
                 if (typeName.startsWith("org/gradle/")) {
-                    return "worker/" + typeName;
+                    return WORKER_GRADLE_REMAPPING_PREFIX + "/" + typeName;
                 }
                 return typeName;
             }

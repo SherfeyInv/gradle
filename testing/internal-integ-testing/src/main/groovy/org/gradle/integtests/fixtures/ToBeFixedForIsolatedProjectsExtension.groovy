@@ -19,17 +19,35 @@ package org.gradle.integtests.fixtures
 import org.gradle.integtests.fixtures.executer.GradleContextualExecuter
 import org.spockframework.runtime.extension.IAnnotationDrivenExtension
 import org.spockframework.runtime.model.FeatureInfo
+import org.spockframework.runtime.model.SpecElementInfo
+import org.spockframework.runtime.model.SpecInfo
+
+import static org.gradle.integtests.fixtures.ToBeFixedForIsolatedProjects.Skip.DO_NOT_SKIP
 
 class ToBeFixedForIsolatedProjectsExtension implements IAnnotationDrivenExtension<ToBeFixedForIsolatedProjects> {
 
     private final ToBeFixedSpecInterceptor toBeFixedSpecInterceptor = new ToBeFixedSpecInterceptor("Isolated Projects")
 
     @Override
+    void visitSpecAnnotation(ToBeFixedForIsolatedProjects annotation, SpecInfo spec) {
+        visitAnnotation(annotation, spec)
+    }
+
+    @Override
     void visitFeatureAnnotation(ToBeFixedForIsolatedProjects annotation, FeatureInfo feature) {
+        visitAnnotation(annotation, feature)
+    }
+
+    private void visitAnnotation(ToBeFixedForIsolatedProjects annotation, SpecElementInfo specElementInfo) {
         if (GradleContextualExecuter.isNotIsolatedProjects()) {
             return
         }
 
-        toBeFixedSpecInterceptor.intercept(feature, new String[0])
+        if (annotation.skip() != DO_NOT_SKIP) {
+            specElementInfo.skip(annotation.skip().reason)
+            return
+        }
+
+        toBeFixedSpecInterceptor.intercept(specElementInfo, new String[0])
     }
 }

@@ -21,17 +21,23 @@ plugins {
 description = "Services used by the Gradle daemon to interact with the client"
 
 dependencies {
+    api(projects.classloaders)
+    api(projects.core)
+    api(projects.coreApi)
+    api(projects.daemonProtocol)
+    api(projects.logging)
+    api(projects.serialization)
+    api(projects.serviceProvider)
+    api(projects.stdlibJavaExtensions)
+    api(projects.time)
+
     api(libs.jsr305)
-    api(project(":java-language-extensions"))
-    api(project(":time"))
-    api(project(":logging"))
-    api(project(":daemon-protocol"))
-    api(project(":core-api"))
-    api(project(":core"))
-    api(project(":base-services"))
 
     implementation(libs.commonsLang)
-    implementation(project(":functional"))
-    implementation(project(":logging-api"))
-    implementation(project(":model-core"))
+    implementation(projects.baseServices)
+    implementation(projects.functional)
+    implementation(projects.loggingApi)
+    implementation(projects.modelCore)
+
+    testImplementation(testFixtures(projects.time))
 }

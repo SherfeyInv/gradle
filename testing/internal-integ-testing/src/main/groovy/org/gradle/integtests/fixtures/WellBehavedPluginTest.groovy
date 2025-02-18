@@ -24,6 +24,8 @@ import java.util.regex.Pattern
 
 abstract class WellBehavedPluginTest extends AbstractIntegrationSpec {
 
+    boolean expectTaskProjectDeprecation
+
     String getPluginName() {
         def matcher = Pattern.compile("(\\w+)Plugin(GoodBehaviour)?(Integ(ration)?)?Test").matcher(getClass().simpleName)
         if (matcher.matches()) {
@@ -46,9 +48,6 @@ abstract class WellBehavedPluginTest extends AbstractIntegrationSpec {
         "AntlrPluginIntegrationTest",
         "PlayApplicationPluginGoodBehaviourIntegrationTest",
         "PmdPluginIntegrationTest",
-        "CppLibraryPluginIntegrationTest",
-        "CppApplicationPluginIntegrationTest",
-        "XcodePluginIntegrationTest",
         "IdeaPluginGoodBehaviourTest"
     ])
     void "can apply plugin unqualified"() {
@@ -56,6 +55,7 @@ abstract class WellBehavedPluginTest extends AbstractIntegrationSpec {
         applyPluginUnqualified()
 
         expect:
+        expectTaskProjectDeprecationIfNeeded()
         succeeds mainTask
     }
 
@@ -64,6 +64,7 @@ abstract class WellBehavedPluginTest extends AbstractIntegrationSpec {
         applyPlugin()
 
         when:
+        executer.withArgument("--no-problems-report")
         run "tasks"
 
         then:
@@ -76,9 +77,6 @@ abstract class WellBehavedPluginTest extends AbstractIntegrationSpec {
         "AntlrPluginIntegrationTest",
         "PlayApplicationPluginGoodBehaviourIntegrationTest",
         "PmdPluginIntegrationTest",
-        "CppLibraryPluginIntegrationTest",
-        "CppApplicationPluginIntegrationTest",
-        "XcodePluginIntegrationTest",
         "IdeaPluginGoodBehaviourTest"
     ])
     def "plugin can build with empty project"() {
@@ -86,6 +84,7 @@ abstract class WellBehavedPluginTest extends AbstractIntegrationSpec {
         applyPlugin()
 
         expect:
+        expectTaskProjectDeprecationIfNeeded()
         succeeds mainTask
     }
 
@@ -138,6 +137,30 @@ abstract class WellBehavedPluginTest extends AbstractIntegrationSpec {
         }
     }
 
+    def "does not realize all possible configurations"() {
+        applyPlugin()
+
+        buildFile """
+            // Most of our plugins create configurations eagerly.
+            // Just test that we don't realize registered configurations.
+            configurations.register("foo") {
+                assert false
+            }
+            configurations.resolvable("res") {
+                assert false
+            }
+            configurations.consumable("con") {
+                assert false
+            }
+            configurations.dependencyScope("deps") {
+                assert false
+            }
+        """
+
+        expect:
+        succeeds("help")
+    }
+
     def "does not realize all possible tasks if the build is included"() {
         Assume.assumeFalse(pluginName in ['xctest', 'visual-studio', 'xcode', 'play-application'])
 
@@ -159,5 +182,18 @@ abstract class WellBehavedPluginTest extends AbstractIntegrationSpec {
 
         then:
         assert output.count("configuring :") == 0
+    }
+
+    void expectTaskProjectDeprecationIfNeeded() {
+        if (expectTaskProjectDeprecation) {
+            expectTaskProjectDeprecation()
+        }
+    }
+
+    void expectTaskProjectDeprecation() {
+        executer.expectDocumentedDeprecationWarning("Invocation of Task.project at execution time has been deprecated. "+
+            "This will fail with an error in Gradle 10.0. " +
+            "This API is incompatible with the configuration cache, which will become the only mode supported by Gradle in a future release. " +
+            "Consult the upgrading guide for further information: https://docs.gradle.org/current/userguide/upgrading_version_7.html#task_project")
     }
 }

@@ -36,6 +36,7 @@ import org.gradle.internal.typeconversion.TypeConversionException;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -108,7 +109,7 @@ public class DependencyClassPathNotationConverter implements NotationConverter<D
     }
 
     private Set<File> gradleApiFileCollection(Collection<File> apiClasspath) {
-        // Don't inline the Groovy jar as the Groovy “tools locator” searches for it by name
+        // Don't inline the Groovy jar as the Groovy "tools locator" searches for it by name
         List<File> groovyImpl = classPathRegistry.getClassPath(LOCAL_GROOVY.name()).getAsFiles();
         List<File> kotlinImpl = kotlinImplFrom(apiClasspath);
         List<File> installationBeacon = classPathRegistry.getClassPath("GRADLE_INSTALLATION_BEACON").getAsFiles();
@@ -126,10 +127,11 @@ public class DependencyClassPathNotationConverter implements NotationConverter<D
     }
 
     private void removeKotlin(Collection<File> apiClasspath) {
-        for (File file : new ArrayList<>(apiClasspath)) {
-            String name = file.getName();
-            if (name.contains("kotlin")) {
-                apiClasspath.remove(file);
+        Iterator<File> iterator = apiClasspath.iterator();
+        while (iterator.hasNext()) {
+            String name = iterator.next().getName();
+            if (name.startsWith("kotlin-") || name.startsWith("gradle-kotlin-")) {
+                iterator.remove();
             }
         }
     }

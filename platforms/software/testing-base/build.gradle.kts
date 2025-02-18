@@ -11,10 +11,8 @@ This project is a implementation dependency of many other testing-related subpro
 
 errorprone {
     disabledChecks.addAll(
-        "EmptyBlockTag", // 3 occurrences
         "InlineMeInliner", // 2 occurrences
         "MissingCasesInEnumSwitch", // 1 occurrences
-        "OperatorPrecedence", // 1 occurrences
     )
 }
 
@@ -24,12 +22,16 @@ dependencies {
     api(projects.core)
     api(projects.coreApi)
     api(projects.enterpriseLogging)
-    api(projects.javaLanguageExtensions)
+    api(projects.stdlibJavaExtensions)
     api(projects.logging)
     api(projects.loggingApi)
     api(projects.messaging)
     api(projects.native)
+    api(projects.problemsApi)
+    api(projects.reportRendering)
     api(projects.reporting)
+    api(projects.serialization)
+    api(projects.serviceProvider)
     api(projects.testingBaseInfrastructure)
     api(projects.time)
 
@@ -42,13 +44,9 @@ dependencies {
     implementation(projects.concurrent)
     implementation(projects.files)
     implementation(projects.modelCore)
-    implementation(projects.processServices)
-    implementation(projects.serialization)
 
-    implementation(libs.ant) {
-        because("only used for DateUtils")
-    }
     implementation(libs.commonsLang)
+    implementation(libs.commonsIo)
     implementation(libs.kryo)
     implementation(libs.slf4jApi)
 
@@ -60,6 +58,7 @@ dependencies {
     testImplementation(testFixtures(projects.messaging))
     testImplementation(testFixtures(projects.platformBase))
     testImplementation(testFixtures(projects.serialization))
+    testImplementation(testFixtures(projects.time))
 
     testImplementation(libs.commonsIo)
 
@@ -86,3 +85,6 @@ packageCycles {
 }
 
 integTest.usesJavadocCodeSnippets = true
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}

@@ -24,7 +24,6 @@ import org.gradle.api.internal.file.DefaultArchiveOperations;
 import org.gradle.api.internal.file.DefaultFileOperations;
 import org.gradle.api.internal.file.DefaultFilePropertyFactory;
 import org.gradle.api.internal.file.DefaultFileSystemOperations;
-import org.gradle.api.internal.file.DefaultProjectLayout;
 import org.gradle.api.internal.file.FileCollectionFactory;
 import org.gradle.api.internal.file.FileFactory;
 import org.gradle.api.internal.file.FileLookup;
@@ -51,7 +50,9 @@ import org.gradle.internal.hash.FileHasher;
 import org.gradle.internal.instantiation.InstantiatorFactory;
 import org.gradle.internal.nativeintegration.filesystem.FileSystem;
 import org.gradle.internal.reflect.Instantiator;
+import org.gradle.internal.service.Provides;
 import org.gradle.internal.service.ServiceRegistration;
+import org.gradle.internal.service.ServiceRegistrationProvider;
 import org.gradle.internal.service.ServiceRegistry;
 import org.gradle.process.ExecOperations;
 import org.gradle.process.internal.DefaultExecOperations;
@@ -62,7 +63,7 @@ import java.io.File;
 /**
  * These Project scoped services are shared between the main build process and worker processes.
  */
-public class WorkerSharedProjectScopeServices {
+public class WorkerSharedProjectScopeServices implements ServiceRegistrationProvider {
     private final File projectDir;
 
     public WorkerSharedProjectScopeServices(File projectDir) {
@@ -70,26 +71,29 @@ public class WorkerSharedProjectScopeServices {
     }
 
     void configure(ServiceRegistration registration) {
-        registration.add(DefaultPropertyFactory.class);
-        registration.add(DefaultFilePropertyFactory.class);
+        registration.add(PropertyFactory.class, DefaultPropertyFactory.class);
+        registration.add(FilePropertyFactory.class, FileFactory.class, DefaultFilePropertyFactory.class);
     }
 
+    @Provides
     protected FileCollectionFactory createFileCollectionFactory(FileCollectionFactory parent, PathToFileResolver fileResolver, TaskDependencyFactory taskDependencyFactory, PropertyHost propertyHost) {
         return parent.forChildScope(fileResolver, taskDependencyFactory, propertyHost);
     }
 
+    @Provides
     protected FileResolver createFileResolver(FileLookup lookup) {
         return lookup.getFileResolver(projectDir);
     }
 
-    protected DefaultFileOperations createFileOperations(
+    @Provides
+    protected FileOperations createFileOperations(
             FileResolver fileResolver,
             Instantiator instantiator,
             DirectoryFileTreeFactory directoryFileTreeFactory,
             FileHasher fileHasher,
             DefaultResourceHandler.Factory resourceHandlerFactory,
             FileCollectionFactory fileCollectionFactory,
-            ObjectFactory objectFactory,
+            PropertyFactory propertyFactory,
             FileSystem fileSystem,
             Factory<PatternSet> patternSetFactory,
             Deleter deleter,
@@ -106,30 +110,34 @@ public class WorkerSharedProjectScopeServices {
                 fileHasher,
                 resourceHandlerFactory,
                 fileCollectionFactory,
-                objectFactory,
+                propertyFactory,
                 fileSystem,
                 patternSetFactory,
                 deleter,
                 documentationRegistry,
                 taskDependencyFactory,
                 providers,
-            decompressionCoordinator,
+                decompressionCoordinator,
                 temporaryFileProvider
         );
     }
 
-    protected FileSystemOperations createFileSystemOperations(ObjectFactory objectFactory, Instantiator instantiator, FileOperations fileOperations) {
-        return instantiator.newInstance(DefaultFileSystemOperations.class, objectFactory, fileOperations);
+    @Provides
+    protected FileSystemOperations createFileSystemOperations(Instantiator instantiator, FileOperations fileOperations) {
+        return instantiator.newInstance(DefaultFileSystemOperations.class, instantiator, fileOperations);
     }
 
+    @Provides
     protected ArchiveOperations createArchiveOperations(Instantiator instantiator, FileOperations fileOperations) {
         return instantiator.newInstance(DefaultArchiveOperations.class, fileOperations);
     }
 
+    @Provides
     protected ExecOperations createExecOperations(Instantiator instantiator, ExecFactory execFactory) {
         return instantiator.newInstance(DefaultExecOperations.class, execFactory);
     }
 
+    @Provides
     ObjectFactory createObjectFactory(InstantiatorFactory instantiatorFactory, ServiceRegistry services, Factory<PatternSet> patternSetFactory, DirectoryFileTreeFactory directoryFileTreeFactory,
                                       PropertyFactory propertyFactory, FilePropertyFactory filePropertyFactory, TaskDependencyFactory taskDependencyFactory, FileCollectionFactory fileCollectionFactory,
                                       DomainObjectCollectionFactory domainObjectCollectionFactory, NamedObjectInstantiator namedObjectInstantiator) {
@@ -143,10 +151,5 @@ public class WorkerSharedProjectScopeServices {
                 taskDependencyFactory,
                 fileCollectionFactory,
                 domainObjectCollectionFactory);
-    }
-
-    DefaultProjectLayout createProjectLayout(FileResolver fileResolver, FileCollectionFactory fileCollectionFactory, TaskDependencyFactory taskDependencyFactory,
-                                             FilePropertyFactory filePropertyFactory, Factory<PatternSet> patternSetFactory, PropertyHost propertyHost, FileFactory fileFactory) {
-        return new DefaultProjectLayout(projectDir, fileResolver, taskDependencyFactory, patternSetFactory, propertyHost, fileCollectionFactory, filePropertyFactory, fileFactory);
     }
 }

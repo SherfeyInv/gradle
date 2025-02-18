@@ -16,7 +16,6 @@
 
 package org.gradle.launcher.daemon.configuration;
 
-import com.google.common.collect.ImmutableList;
 import org.gradle.api.NonNullApi;
 import org.gradle.internal.buildoption.BooleanBuildOption;
 import org.gradle.internal.buildoption.BooleanCommandLineOptionConfiguration;
@@ -27,11 +26,12 @@ import org.gradle.internal.buildoption.EnabledOnlyBooleanBuildOption;
 import org.gradle.internal.buildoption.Origin;
 import org.gradle.internal.buildoption.StringBuildOption;
 import org.gradle.internal.jvm.JavaHomeException;
-import org.gradle.internal.jvm.Jvm;
 import org.gradle.internal.nativeintegration.services.NativeServices.NativeServicesMode;
+import org.gradle.launcher.daemon.toolchain.DaemonJvmCriteria;
 import org.gradle.process.internal.JvmOptions;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
@@ -39,7 +39,7 @@ import static org.gradle.internal.nativeintegration.services.NativeServices.NATI
 
 public class DaemonBuildOptions extends BuildOptionSet<DaemonParameters> {
 
-    private static List<BuildOption<DaemonParameters>> options = ImmutableList.of(
+    private static List<BuildOption<DaemonParameters>> options = Arrays.asList(
         new IdleTimeoutOption(),
         new HealthCheckOption(),
         new BaseDirOption(),
@@ -138,7 +138,7 @@ public class DaemonBuildOptions extends BuildOptionSet<DaemonParameters> {
                 origin.handleInvalidValue(value, "Java home supplied is invalid");
             }
             try {
-                settings.setRequestedJvmBasedOnJavaHome(Jvm.forHome(javaHome));
+                settings.setRequestedJvmCriteria(new DaemonJvmCriteria.JavaHome(DaemonJvmCriteria.JavaHome.Source.ORG_GRADLE_JAVA_HOME, javaHome));
             } catch (JavaHomeException e) {
                 origin.handleInvalidValue(value, "Java home supplied seems to be invalid");
             }
@@ -305,7 +305,7 @@ public class DaemonBuildOptions extends BuildOptionSet<DaemonParameters> {
         @Override
         public void applyTo(String value, DaemonParameters settings, Origin origin) {
             try {
-                settings.setPriority(DaemonParameters.Priority.valueOf(value.toUpperCase(Locale.ROOT)));
+                settings.setPriority(DaemonPriority.valueOf(value.toUpperCase(Locale.ROOT)));
             } catch (IllegalArgumentException e) {
                 origin.handleInvalidValue(value);
             }

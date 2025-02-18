@@ -13,6 +13,12 @@ gradlebuildJava.usedInWorkers()
 tasks.named<JavaCompile>("compileTestJava") {
     options.release = 8
 }
+afterEvaluate {
+    tasks.named<GroovyCompile>("compileTestGroovy") {
+        sourceCompatibility = "1.8"
+        targetCompatibility = "1.8"
+    }
+}
 
 /**
  * Use Java 8 compatibility for JMH benchmarks
@@ -23,58 +29,35 @@ tasks.named<JavaCompile>("jmhCompileGeneratedClasses") {
 
 moduleIdentity.createBuildReceipt()
 
-errorprone {
-    disabledChecks.addAll(
-        "DefaultCharset", // 4 occurrences
-        "EmptyBlockTag", // 2 occurrences
-        "EscapedEntity", // 1 occurrences
-        "FutureReturnValueIgnored", // 1 occurrences
-        "ImmutableEnumChecker", // 1 occurrences
-        "InlineFormatString", // 2 occurrences
-        "InlineMeSuggester", // 1 occurrences
-        "JavaLangClash", // 1 occurrences
-        "MissingCasesInEnumSwitch", // 1 occurrences
-        "MixedMutabilityReturnType", // 3 occurrences
-        "NonAtomicVolatileUpdate", // 2 occurrences
-        "ReturnValueIgnored", // 1 occurrences
-        "StringCaseLocaleUsage", // 8 occurrences
-        "StringSplitter", // 3 occurrences
-        "ThreadLocalUsage", // 4 occurrences
-        "TypeParameterUnusedInFormals", // 5 occurrences
-        "URLEqualsHashCode", // 1 occurrences
-        "UnsynchronizedOverridesSynchronized", // 2 occurrences
-        "UnusedMethod", // 2 occurrences
-    )
-}
-
 dependencies {
+    api(projects.buildOperations)
+    api(projects.classloaders)
     api(projects.concurrent)
-    api(projects.javaLanguageExtensions)
     api(projects.fileTemp)
-    api(project(":hashing"))
-    api(project(":build-operations"))
+    api(projects.hashing)
+    api(projects.serviceLookup)
+    api(projects.stdlibJavaExtensions)
     api(libs.inject)
     api(libs.jsr305)
     api(libs.guava)
 
-    implementation(projects.io)
     implementation(projects.time)
+    implementation(projects.baseAsm)
 
-    implementation(libs.asm)
     implementation(libs.commonsIo)
     implementation(libs.commonsLang)
     implementation(libs.slf4jApi)
 
-    integTestImplementation(project(":logging"))
+    integTestImplementation(projects.logging)
 
-    testFixturesApi(project(":hashing"))
+    testFixturesApi(projects.hashing)
     testFixturesImplementation(libs.guava)
-    testImplementation(testFixtures(project(":core")))
+    testImplementation(testFixtures(projects.core))
     testImplementation(libs.xerces)
 
-    integTestDistributionRuntimeOnly(project(":distributions-core"))
+    integTestDistributionRuntimeOnly(projects.distributionsCore)
 
-    jmh(platform(project(":distributions-dependencies")))
+    jmh(platform(projects.distributionsDependencies))
     jmh(libs.bouncycastleProvider)
     jmh(libs.guava)
 }
@@ -85,3 +68,6 @@ packageCycles {
 }
 
 jmh.includes = listOf("HashingAlgorithmsBenchmark")
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}

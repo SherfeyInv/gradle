@@ -28,10 +28,11 @@ import org.gradle.api.internal.artifacts.transform.TransformExecutionResult;
 import org.gradle.api.internal.cache.CacheConfigurationsInternal;
 import org.gradle.cache.Cache;
 import org.gradle.cache.CacheBuilder;
+import org.gradle.cache.CacheCleanupStrategyFactory;
 import org.gradle.cache.UnscopedCacheBuilderFactory;
 import org.gradle.cache.internal.CrossBuildInMemoryCache;
 import org.gradle.cache.internal.CrossBuildInMemoryCacheFactory;
-import org.gradle.cache.internal.UsedGradleVersions;
+import org.gradle.internal.versionedcache.UsedGradleVersions;
 import org.gradle.cache.scopes.GlobalScopedCacheBuilderFactory;
 import org.gradle.execution.plan.ToPlannedNodeConverter;
 import org.gradle.internal.event.ListenerManager;
@@ -40,13 +41,17 @@ import org.gradle.internal.execution.UnitOfWork;
 import org.gradle.internal.execution.workspace.ImmutableWorkspaceProvider;
 import org.gradle.internal.execution.workspace.impl.CacheBasedImmutableWorkspaceProvider;
 import org.gradle.internal.file.FileAccessTimeJournal;
+import org.gradle.internal.service.Provides;
+import org.gradle.internal.service.ServiceRegistrationProvider;
 
-public class DependencyManagementGradleUserHomeScopeServices {
+public class DependencyManagementGradleUserHomeScopeServices implements ServiceRegistrationProvider {
 
+    @Provides
     ToPlannedNodeConverter createToPlannedTransformStepConverter() {
         return new ToPlannedTransformStepConverter();
     }
 
+    @Provides
     DefaultArtifactCaches.WritableArtifactCacheLockingParameters createWritableArtifactCacheLockingParameters(FileAccessTimeJournal fileAccessTimeJournal, UsedGradleVersions usedGradleVersions) {
         return new DefaultArtifactCaches.WritableArtifactCacheLockingParameters() {
             @Override
@@ -61,15 +66,17 @@ public class DependencyManagementGradleUserHomeScopeServices {
         };
     }
 
+    @Provides
     ArtifactCachesProvider createArtifactCaches(
         GlobalScopedCacheBuilderFactory cacheBuilderFactory,
         UnscopedCacheBuilderFactory unscopedCacheBuilderFactory,
         DefaultArtifactCaches.WritableArtifactCacheLockingParameters parameters,
         ListenerManager listenerManager,
         DocumentationRegistry documentationRegistry,
-        CacheConfigurationsInternal cacheConfigurations
+        CacheConfigurationsInternal cacheConfigurations,
+        CacheCleanupStrategyFactory cacheCleanupStrategyFactory
     ) {
-        DefaultArtifactCaches artifactCachesProvider = new DefaultArtifactCaches(cacheBuilderFactory, unscopedCacheBuilderFactory, parameters, documentationRegistry, cacheConfigurations);
+        DefaultArtifactCaches artifactCachesProvider = new DefaultArtifactCaches(cacheBuilderFactory, unscopedCacheBuilderFactory, parameters, documentationRegistry, cacheConfigurations, cacheCleanupStrategyFactory);
         listenerManager.addListener(new BuildAdapter() {
             @SuppressWarnings("deprecation")
             @Override
@@ -82,17 +89,19 @@ public class DependencyManagementGradleUserHomeScopeServices {
         return artifactCachesProvider;
     }
 
+    @Provides
     ImmutableTransformWorkspaceServices createTransformWorkspaceServices(
         GlobalScopedCacheBuilderFactory cacheBuilderFactory,
         CrossBuildInMemoryCacheFactory crossBuildInMemoryCacheFactory,
         FileAccessTimeJournal fileAccessTimeJournal,
-        CacheConfigurationsInternal cacheConfigurations
+        CacheConfigurationsInternal cacheConfigurations,
+        CacheCleanupStrategyFactory cacheCleanupStrategyFactory
     ) {
         CacheBuilder cacheBuilder = cacheBuilderFactory
             .createCacheBuilder(CacheLayout.TRANSFORMS.getName())
             .withDisplayName("Artifact transforms cache");
         CrossBuildInMemoryCache<UnitOfWork.Identity, ExecutionEngine.IdentityCacheResult<TransformExecutionResult.TransformWorkspaceResult>> identityCache = crossBuildInMemoryCacheFactory.newCacheRetainingDataFromPreviousBuild(result -> result.getResult().isSuccessful());
-        CacheBasedImmutableWorkspaceProvider workspaceProvider = CacheBasedImmutableWorkspaceProvider.createWorkspaceProvider(cacheBuilder, fileAccessTimeJournal, cacheConfigurations);
+        CacheBasedImmutableWorkspaceProvider workspaceProvider = CacheBasedImmutableWorkspaceProvider.createWorkspaceProvider(cacheBuilder, fileAccessTimeJournal, cacheConfigurations, cacheCleanupStrategyFactory);
         return new ImmutableTransformWorkspaceServices() {
             @Override
             public ImmutableWorkspaceProvider getWorkspaceProvider() {

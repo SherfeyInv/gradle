@@ -17,7 +17,7 @@ package org.gradle.internal.component.external.model;
 
 import com.google.common.collect.ImmutableList;
 import org.gradle.api.artifacts.component.ModuleComponentIdentifier;
-import org.gradle.api.internal.attributes.ImmutableAttributesFactory;
+import org.gradle.api.internal.attributes.AttributesFactory;
 import org.gradle.internal.component.model.ComponentArtifactResolveMetadata;
 import org.gradle.internal.component.model.ComponentGraphResolveMetadata;
 import org.gradle.internal.component.model.ModuleConfigurationMetadata;
@@ -32,10 +32,10 @@ import javax.annotation.Nullable;
  *
  * This type is being replaced by several other interfaces. Try to avoid this interface.
  * @see ComponentGraphResolveMetadata
- * @see ModuleComponentGraphResolveMetadata
+ * @see ExternalModuleComponentGraphResolveMetadata
  * @see ComponentArtifactResolveMetadata
  */
-public interface ModuleComponentResolveMetadata extends ExternalComponentResolveMetadata, ModuleComponentGraphResolveMetadata {
+public interface ModuleComponentResolveMetadata extends ExternalComponentResolveMetadata, ExternalModuleComponentGraphResolveMetadata {
     /**
      * {@inheritDoc}
      */
@@ -76,7 +76,7 @@ public interface ModuleComponentResolveMetadata extends ExternalComponentResolve
     ImmutableList<? extends ComponentVariant> getVariants();
 
     @Nullable
-    ImmutableAttributesFactory getAttributesFactory();
+    AttributesFactory getAttributesFactory();
 
     VariantMetadataRules getVariantMetadataRules();
 

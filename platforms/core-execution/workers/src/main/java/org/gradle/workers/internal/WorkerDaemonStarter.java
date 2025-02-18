@@ -48,7 +48,7 @@ public class WorkerDaemonStarter {
         this.actionExecutionSpecFactory = actionExecutionSpecFactory;
     }
 
-    public WorkerDaemonClient startDaemon(DaemonForkOptions forkOptions) {
+    WorkerDaemonClient startDaemon(DaemonForkOptions forkOptions) {
         LOG.debug("Starting Gradle worker daemon with fork options {}.", forkOptions);
         Timer clock = Time.startTimer();
         MultiRequestWorkerProcessBuilder<TransportableActionExecutionSpec, DefaultWorkResult> builder = workerDaemonProcessFactory.multiRequestWorker(WorkerDaemonServer.class);
@@ -64,7 +64,7 @@ public class WorkerDaemonStarter {
             builder.applicationClasspath(classPathRegistry.getClassPath("CORE_WORKER_RUNTIME").getAsFiles());
         }
         JavaExecHandleBuilder javaCommand = builder.getJavaCommand();
-        forkOptions.getJavaForkOptions().copyTo(javaCommand);
+        forkOptions.copyTo(javaCommand);
         builder.registerArgumentSerializer(TransportableActionExecutionSpec.class, new TransportableActionExecutionSpecSerializer());
         MultiRequestClient<TransportableActionExecutionSpec, DefaultWorkResult> workerDaemonProcess = builder.build();
         WorkerProcess workerProcess = workerDaemonProcess.start();

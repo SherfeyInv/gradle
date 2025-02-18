@@ -28,6 +28,13 @@
     "crossVersionTests": false
   },
   {
+    "name": "base-diagnostics",
+    "path": "platforms/core-configuration/base-diagnostics",
+    "unitTests": true,
+    "functionalTests": true,
+    "crossVersionTests": false
+  },
+  {
     "name": "base-ide-plugins",
     "path": "platforms/ide/base-ide-plugins",
     "unitTests": true,
@@ -49,8 +56,8 @@
     "crossVersionTests": false
   },
   {
-    "name": "bootstrap",
-    "path": "platforms/core-runtime/bootstrap",
+    "name": "bean-serialization-services",
+    "path": "platforms/core-configuration/bean-serialization-services",
     "unitTests": false,
     "functionalTests": false,
     "crossVersionTests": false
@@ -72,7 +79,7 @@
   {
     "name": "build-cache-example-client",
     "path": "platforms/core-execution/build-cache-example-client",
-    "unitTests": false,
+    "unitTests": true,
     "functionalTests": false,
     "crossVersionTests": false
   },
@@ -126,6 +133,20 @@
     "crossVersionTests": false
   },
   {
+    "name": "build-init-specs",
+    "path": "platforms/software/build-init-specs",
+    "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "build-init-specs-api",
+    "path": "platforms/software/build-init-specs-api",
+    "unitTests": false,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
     "name": "build-operations",
     "path": "platforms/core-runtime/build-operations",
     "unitTests": true,
@@ -133,8 +154,22 @@
     "crossVersionTests": false
   },
   {
+    "name": "build-operations-trace",
+    "path": "platforms/core-runtime/build-operations-trace",
+    "unitTests": false,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
     "name": "build-option",
     "path": "platforms/core-runtime/build-option",
+    "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "build-process-services",
+    "path": "platforms/core-runtime/build-process-services",
     "unitTests": true,
     "functionalTests": false,
     "crossVersionTests": false
@@ -150,6 +185,13 @@
     "name": "build-state",
     "path": "platforms/core-runtime/build-state",
     "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "classloaders",
+    "path": "platforms/core-runtime/classloaders",
+    "unitTests": false,
     "functionalTests": false,
     "crossVersionTests": false
   },
@@ -196,6 +238,20 @@
     "crossVersionTests": true
   },
   {
+    "name": "configuration-cache-base",
+    "path": "platforms/core-configuration/configuration-cache-base",
+    "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "configuration-problems-base",
+    "path": "platforms/core-configuration/configuration-problems-base",
+    "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
     "name": "core",
     "path": "subprojects/core",
     "unitTests": true,
@@ -210,8 +266,29 @@
     "crossVersionTests": false
   },
   {
+    "name": "core-kotlin-extensions",
+    "path": "platforms/core-configuration/core-kotlin-extensions",
+    "unitTests": false,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
     "name": "core-platform",
     "path": "subprojects/core-platform",
+    "unitTests": false,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "core-serialization-codecs",
+    "path": "platforms/core-configuration/core-serialization-codecs",
+    "unitTests": false,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "daemon-main",
+    "path": "platforms/core-runtime/daemon-main",
     "unitTests": false,
     "functionalTests": false,
     "crossVersionTests": false
@@ -220,6 +297,13 @@
     "name": "daemon-protocol",
     "path": "platforms/core-runtime/daemon-protocol",
     "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "daemon-server",
+    "path": "platforms/core-runtime/daemon-server",
+    "unitTests": false,
     "functionalTests": false,
     "crossVersionTests": false
   },
@@ -242,6 +326,20 @@
     "path": "platforms/core-configuration/declarative-dsl-core",
     "unitTests": true,
     "functionalTests": true,
+    "crossVersionTests": false
+  },
+  {
+    "name": "declarative-dsl-evaluator",
+    "path": "platforms/core-configuration/declarative-dsl-evaluator",
+    "unitTests": false,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "declarative-dsl-internal-utils",
+    "path": "platforms/core-configuration/declarative-dsl-internal-utils",
+    "unitTests": true,
+    "functionalTests": false,
     "crossVersionTests": false
   },
   {
@@ -273,10 +371,10 @@
     "crossVersionTests": true
   },
   {
-    "name": "diagnostics",
-    "path": "subprojects/diagnostics",
-    "unitTests": true,
-    "functionalTests": true,
+    "name": "dependency-management-serialization-codecs",
+    "path": "platforms/core-configuration/dependency-management-serialization-codecs",
+    "unitTests": false,
+    "functionalTests": false,
     "crossVersionTests": false
   },
   {
@@ -364,6 +462,13 @@
     "crossVersionTests": false
   },
   {
+    "name": "encryption-services",
+    "path": "platforms/core-configuration/encryption-services",
+    "unitTests": false,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
     "name": "enterprise",
     "path": "platforms/enterprise/enterprise",
     "unitTests": true,
@@ -420,6 +525,13 @@
     "crossVersionTests": false
   },
   {
+    "name": "file-operations",
+    "path": "platforms/core-configuration/file-operations",
+    "unitTests": false,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
     "name": "file-temp",
     "path": "platforms/core-runtime/file-temp",
     "unitTests": true,
@@ -441,9 +553,44 @@
     "crossVersionTests": false
   },
   {
+    "name": "flow-services",
+    "path": "platforms/core-configuration/flow-services",
+    "unitTests": false,
+    "functionalTests": true,
+    "crossVersionTests": false
+  },
+  {
     "name": "functional",
     "path": "platforms/core-runtime/functional",
     "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "gradle-cli",
+    "path": "platforms/core-runtime/gradle-cli",
+    "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "gradle-cli-main",
+    "path": "platforms/core-runtime/gradle-cli-main",
+    "unitTests": false,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "graph-serialization",
+    "path": "platforms/core-configuration/graph-serialization",
+    "unitTests": false,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "guava-serialization-codecs",
+    "path": "platforms/core-configuration/guava-serialization-codecs",
+    "unitTests": false,
     "functionalTests": false,
     "crossVersionTests": false
   },
@@ -497,10 +644,24 @@
     "crossVersionTests": false
   },
   {
+    "name": "instrumentation-agent-services",
+    "path": "platforms/core-runtime/instrumentation-agent-services",
+    "unitTests": false,
+    "functionalTests": true,
+    "crossVersionTests": false
+  },
+  {
     "name": "instrumentation-declarations",
     "path": "platforms/core-runtime/instrumentation-declarations",
     "unitTests": false,
     "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "instrumentation-reporting",
+    "path": "platforms/core-runtime/instrumentation-reporting",
+    "unitTests": false,
+    "functionalTests": true,
     "crossVersionTests": false
   },
   {
@@ -527,7 +688,7 @@
   {
     "name": "internal-instrumentation-api",
     "path": "platforms/core-runtime/internal-instrumentation-api",
-    "unitTests": false,
+    "unitTests": true,
     "functionalTests": false,
     "crossVersionTests": false
   },
@@ -588,16 +749,9 @@
     "crossVersionTests": false
   },
   {
-    "name": "java-language-extensions",
-    "path": "platforms/core-runtime/java-language-extensions",
-    "unitTests": true,
-    "functionalTests": false,
-    "crossVersionTests": false
-  },
-  {
     "name": "java-platform",
     "path": "platforms/jvm/java-platform",
-    "unitTests": true,
+    "unitTests": false,
     "functionalTests": true,
     "crossVersionTests": false
   },
@@ -725,6 +879,13 @@
     "path": "platforms/core-configuration/model-groovy",
     "unitTests": true,
     "functionalTests": true,
+    "crossVersionTests": false
+  },
+  {
+    "name": "model-reflect",
+    "path": "platforms/core-configuration/model-reflect",
+    "unitTests": true,
+    "functionalTests": false,
     "crossVersionTests": false
   },
   {
@@ -870,7 +1031,7 @@
   {
     "name": "problems",
     "path": "platforms/ide/problems",
-    "unitTests": false,
+    "unitTests": true,
     "functionalTests": true,
     "crossVersionTests": false
   },
@@ -882,9 +1043,37 @@
     "crossVersionTests": false
   },
   {
+    "name": "problems-rendering",
+    "path": "platforms/ide/problems-rendering",
+    "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "process-memory-services",
+    "path": "platforms/core-runtime/process-memory-services",
+    "unitTests": true,
+    "functionalTests": true,
+    "crossVersionTests": false
+  },
+  {
     "name": "process-services",
     "path": "platforms/core-runtime/process-services",
-    "unitTests": true,
+    "unitTests": false,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "public-api",
+    "path": "subprojects/public-api",
+    "unitTests": false,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "public-api-tests",
+    "path": "testing/public-api-tests",
+    "unitTests": false,
     "functionalTests": true,
     "crossVersionTests": false
   },
@@ -893,6 +1082,13 @@
     "path": "platforms/software/publish",
     "unitTests": true,
     "functionalTests": true,
+    "crossVersionTests": false
+  },
+  {
+    "name": "report-rendering",
+    "path": "platforms/core-runtime/report-rendering",
+    "unitTests": true,
+    "functionalTests": false,
     "crossVersionTests": false
   },
   {
@@ -966,6 +1162,34 @@
     "crossVersionTests": false
   },
   {
+    "name": "service-lookup",
+    "path": "platforms/core-runtime/service-lookup",
+    "unitTests": false,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "service-provider",
+    "path": "platforms/core-runtime/service-provider",
+    "unitTests": false,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "service-registry-builder",
+    "path": "platforms/core-runtime/service-registry-builder",
+    "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "service-registry-impl",
+    "path": "platforms/core-runtime/service-registry-impl",
+    "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
     "name": "signing",
     "path": "platforms/software/signing",
     "unitTests": true,
@@ -998,6 +1222,34 @@
     "path": "testing/soak",
     "unitTests": false,
     "functionalTests": true,
+    "crossVersionTests": false
+  },
+  {
+    "name": "software-diagnostics",
+    "path": "platforms/software/software-diagnostics",
+    "unitTests": true,
+    "functionalTests": true,
+    "crossVersionTests": false
+  },
+  {
+    "name": "stdlib-java-extensions",
+    "path": "platforms/core-runtime/stdlib-java-extensions",
+    "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "stdlib-kotlin-extensions",
+    "path": "platforms/core-configuration/stdlib-kotlin-extensions",
+    "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
+    "name": "stdlib-serialization-codecs",
+    "path": "platforms/core-configuration/stdlib-serialization-codecs",
+    "unitTests": false,
+    "functionalTests": false,
     "crossVersionTests": false
   },
   {
@@ -1092,6 +1344,13 @@
     "crossVersionTests": false
   },
   {
+    "name": "tooling-api-provider",
+    "path": "platforms/core-runtime/tooling-api-provider",
+    "unitTests": false,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
     "name": "tooling-native",
     "path": "platforms/native/tooling-native",
     "unitTests": false,
@@ -1113,6 +1372,13 @@
     "crossVersionTests": false
   },
   {
+    "name": "versioned-cache",
+    "path": "platforms/core-runtime/versioned-cache",
+    "unitTests": true,
+    "functionalTests": false,
+    "crossVersionTests": false
+  },
+  {
     "name": "war",
     "path": "platforms/jvm/war",
     "unitTests": true,
@@ -1120,16 +1386,9 @@
     "crossVersionTests": false
   },
   {
-    "name": "worker-processes",
-    "path": "platforms/core-execution/worker-processes",
+    "name": "worker-main",
+    "path": "platforms/core-execution/worker-main",
     "unitTests": true,
-    "functionalTests": false,
-    "crossVersionTests": false
-  },
-  {
-    "name": "worker-services",
-    "path": "platforms/core-runtime/worker-services",
-    "unitTests": false,
     "functionalTests": false,
     "crossVersionTests": false
   },
@@ -1141,8 +1400,8 @@
     "crossVersionTests": false
   },
   {
-    "name": "wrapper",
-    "path": "platforms/core-runtime/wrapper",
+    "name": "wrapper-main",
+    "path": "platforms/core-runtime/wrapper-main",
     "unitTests": false,
     "functionalTests": true,
     "crossVersionTests": true

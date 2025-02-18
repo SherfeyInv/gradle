@@ -28,13 +28,15 @@ import org.gradle.internal.properties.annotations.TypeMetadata
 import org.gradle.internal.properties.annotations.TypeMetadataStore
 import org.gradle.internal.reflect.annotations.TypeAnnotationMetadata
 import org.gradle.plugin.software.internal.SoftwareTypeRegistry
+import org.gradle.util.TestUtil
 import spock.lang.Specification
 
 class SoftwareTypeRegistrationPluginTargetTest extends Specification {
     def delegate = Mock(PluginTarget)
     def softwareTypeRegistry = Mock(SoftwareTypeRegistry)
     def inspectionScheme = Mock(InspectionScheme)
-    def pluginTarget = new SoftwareTypeRegistrationPluginTarget(delegate, softwareTypeRegistry, inspectionScheme)
+    def problems = TestUtil.problemsService()
+    def pluginTarget = new SoftwareTypeRegistrationPluginTarget(delegate, softwareTypeRegistry, inspectionScheme, problems)
     def plugin = Mock(Plugin)
     def metadataStore = Mock(TypeMetadataStore)
     def pluginTypeMetadata = Mock(TypeMetadata)
@@ -58,7 +60,7 @@ class SoftwareTypeRegistrationPluginTargetTest extends Specification {
 
         and: // returns property metadata with an annotation
         1 * propertyMetadata.getAnnotation(SoftwareType.class) >> Optional.of(Stub(SoftwareType))
-        1 * softwareTypeRegistry.register(SoftwareTypePlugin.class)
+        1 * softwareTypeRegistry.register(SoftwareTypePlugin.class, null)
 
         and:
         1 * delegate.applyImperative(null, plugin)
@@ -72,7 +74,7 @@ class SoftwareTypeRegistrationPluginTargetTest extends Specification {
         2 * inspectionScheme.getMetadataStore() >> metadataStore
         1 * metadataStore.getTypeMetadata(plugin.class) >> pluginTypeMetadata
         1 * pluginTypeMetadata.getTypeAnnotationMetadata() >> typeAnnotationMetadata
-        1 * pluginTypeMetadata.getType() >> plugin.class
+        2 * pluginTypeMetadata.getType() >> plugin.class
         1 * typeAnnotationMetadata.getAnnotation(RegistersSoftwareTypes.class) >> Optional.of(registersSoftwareTypes)
         1 * registersSoftwareTypes.value() >> [SoftwareTypePlugin.class]
         1 * metadataStore.getTypeMetadata(SoftwareTypePlugin.class) >> softwareTypePluginMetadata
@@ -97,7 +99,7 @@ class SoftwareTypeRegistrationPluginTargetTest extends Specification {
         2 * inspectionScheme.getMetadataStore() >> metadataStore
         1 * metadataStore.getTypeMetadata(plugin.class) >> pluginTypeMetadata
         1 * pluginTypeMetadata.getTypeAnnotationMetadata() >> typeAnnotationMetadata
-        1 * pluginTypeMetadata.getType() >> plugin.class
+        2 * pluginTypeMetadata.getType() >> plugin.class
         1 * typeAnnotationMetadata.getAnnotation(RegistersSoftwareTypes.class) >> Optional.of(registersSoftwareTypes)
         1 * registersSoftwareTypes.value() >> [SoftwareTypePlugin.class]
         1 * metadataStore.getTypeMetadata(SoftwareTypePlugin.class) >> softwareTypePluginMetadata

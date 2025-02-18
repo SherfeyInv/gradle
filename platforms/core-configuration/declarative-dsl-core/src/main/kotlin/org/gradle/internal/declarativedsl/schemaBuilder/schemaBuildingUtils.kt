@@ -17,67 +17,34 @@
 package org.gradle.internal.declarativedsl.schemaBuilder
 
 import org.gradle.declarative.dsl.schema.DataTypeRef
-import org.gradle.internal.declarativedsl.analysis.DataTypeRefInternal
-import org.gradle.internal.declarativedsl.analysis.DefaultFqName
-import org.gradle.internal.declarativedsl.analysis.ref
-import org.gradle.internal.declarativedsl.language.DataTypeInternal
+import org.gradle.internal.declarativedsl.schemaBuilder.SchemaBuildingTags.parameter
+import org.gradle.internal.declarativedsl.schemaBuilder.SchemaBuildingTags.returnValueType
 import kotlin.reflect.KCallable
-import kotlin.reflect.KClass
-import kotlin.reflect.KClassifier
+import kotlin.reflect.KParameter
 import kotlin.reflect.KProperty
 import kotlin.reflect.KType
-
-
-fun KClassifier.toDataTypeRef(): DataTypeRef =
-    when (this) {
-        Unit::class -> DataTypeInternal.DefaultUnitType.ref
-        Int::class -> DataTypeInternal.DefaultIntDataType.ref
-        String::class -> DataTypeInternal.DefaultStringDataType.ref
-        Boolean::class -> DataTypeInternal.DefaultBooleanDataType.ref
-        Long::class -> DataTypeInternal.DefaultLongDataType.ref
-        is KClass<*> -> DataTypeRefInternal.DefaultName(DefaultFqName.parse(checkNotNull(qualifiedName)))
-        else -> error("unexpected type")
-    }
-
-
-internal
-fun checkInScope(
-    type: KType,
-    typeScope: DataSchemaBuilder.PreIndex
-) {
-    if (type.classifier?.isInScope(typeScope) != true) {
-        error("type $type used in a function is not in schema scope")
-    }
-}
-
-
-private
-fun KClassifier.isInScope(typeScope: DataSchemaBuilder.PreIndex) =
-    isBuiltInType || this is KClass<*> && typeScope.hasType(this)
-
-
-private
-val KClassifier.isBuiltInType: Boolean
-    get() = when (this) {
-        Int::class, String::class, Boolean::class, Long::class, Unit::class -> true
-        else -> false
-    }
 
 
 val KCallable<*>.annotationsWithGetters: List<Annotation>
     get() = this.annotations + if (this is KProperty) this.getter.annotations else emptyList()
 
 
-fun KType.toDataTypeRefOrError() =
-    toDataTypeRef() ?: error("failed to convert type $this to data type")
+fun KCallable<*>.returnTypeToRefOrError(host: SchemaBuildingHost) =
+    returnTypeToRefOrError(host) { this.returnType }
 
 
-private
-fun KType.toDataTypeRef(): DataTypeRef? = when {
-    // isMarkedNullable -> TODO: support nullable types
-    arguments.isNotEmpty() -> null // TODO: support for some particular generic types
-    else -> when (val classifier = classifier) {
-        null -> null
-        else -> classifier.toDataTypeRef()
+fun KCallable<*>.returnTypeToRefOrError(host: SchemaBuildingHost, typeMapping: (KCallable<*>) -> KType): DataTypeRef {
+    val returnType = typeMapping(this)
+
+    return host.withTag(returnValueType(returnType)) {
+        host.modelTypeRef(returnType)
     }
 }
+
+fun KParameter.parameterTypeToRefOrError(host: SchemaBuildingHost) =
+    parameterTypeToRefOrError(host) { this.type }
+
+fun KParameter.parameterTypeToRefOrError(host: SchemaBuildingHost, typeMapping: (KParameter) -> KType) =
+    host.withTag(parameter(name ?: "(no name)")) {
+        host.modelTypeRef(typeMapping(this))
+    }

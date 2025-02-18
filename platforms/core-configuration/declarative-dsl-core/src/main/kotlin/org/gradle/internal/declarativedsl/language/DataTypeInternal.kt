@@ -19,6 +19,8 @@ package org.gradle.internal.declarativedsl.language
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.gradle.declarative.dsl.schema.DataType
+import org.gradle.declarative.dsl.schema.DataType.ParameterizedTypeInstance.TypeArgument
+import org.gradle.declarative.dsl.schema.FqName
 
 
 object DataTypeInternal {
@@ -28,6 +30,8 @@ object DataTypeInternal {
     data object DefaultIntDataType : DataType.IntDataType {
         override val constantType: Class<Int> = Int::class.java
         override fun toString(): String = "Int"
+
+        @Suppress("unused")
         private
         fun readResolve(): Any = DefaultIntDataType
     }
@@ -37,6 +41,8 @@ object DataTypeInternal {
     data object DefaultLongDataType : DataType.LongDataType {
         override val constantType: Class<Long> = Long::class.java
         override fun toString(): String = "Long"
+
+        @Suppress("unused")
         private
         fun readResolve(): Any = DefaultLongDataType
     }
@@ -46,6 +52,8 @@ object DataTypeInternal {
     data object DefaultStringDataType : DataType.StringDataType {
         override val constantType: Class<String> = String::class.java
         override fun toString(): String = "String"
+
+        @Suppress("unused")
         private
         fun readResolve(): Any = DefaultStringDataType
     }
@@ -55,6 +63,8 @@ object DataTypeInternal {
     data object DefaultBooleanDataType : DataType.BooleanDataType {
         override val constantType: Class<Boolean> = Boolean::class.java
         override fun toString(): String = "Boolean"
+
+        @Suppress("unused")
         private
         fun readResolve(): Any = DefaultBooleanDataType
     }
@@ -63,6 +73,8 @@ object DataTypeInternal {
     @SerialName("null")
     data object DefaultNullType : DataType.NullType {
         override fun toString(): String = "Null"
+
+        @Suppress("unused")
         private
         fun readResolve(): Any = DefaultNullType
     }
@@ -71,9 +83,42 @@ object DataTypeInternal {
     @SerialName("unit")
     data object DefaultUnitType : DataType.UnitType {
         override fun toString(): String = "Unit"
+
+        @Suppress("unused")
         private
         fun readResolve(): Any = DefaultUnitType
     }
+
+    @Serializable
+    @SerialName("parameterizedOpaqueTypeSignature")
+    data class DefaultParameterizedTypeSignature(
+        override val name: FqName,
+        override val typeParameters: List<TypeParameter>,
+        override val javaTypeName: String
+    ) : DataType.ParameterizedTypeSignature {
+        @Serializable
+        @SerialName("typeParameter")
+        data class TypeParameter(override val name: String, override val isOutVariant: Boolean) : DataType.ParameterizedTypeSignature.TypeParameter
+
+        init {
+            check(typeParameters.isNotEmpty()) { "A parameterized opaque type must have at least one type parameter" }
+        }
+    }
+
+    @Serializable
+    @SerialName("parameterizedTypeInstance")
+    data class DefaultParameterizedTypeInstance(
+        override val typeSignature: DataType.ParameterizedTypeSignature,
+        override val typeArguments: List<TypeArgument>
+    ) : DataType.ParameterizedTypeInstance {
+        init {
+            check(typeArguments.size == typeSignature.typeParameters.size) { "Mismatching type arguments and type parameter counts" }
+        }
+    }
+
+    @Serializable
+    @SerialName("typeVariableUsage")
+    data class DefaultTypeVariableUsage(override val variableId: Long) : DataType.TypeVariableUsage
 
 // TODO: `Any` type?
 // TODO: Support subtyping of some sort in the schema rather than via reflection?

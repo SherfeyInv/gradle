@@ -19,29 +19,39 @@ plugins {
 }
 
 dependencies {
-    api(project(":base-services"))
-    api(project(":core"))
-    api(project(":core-api"))
-    api(project(":declarative-dsl-api"))
-    api(project(":declarative-dsl-core"))
-    api(project(":declarative-dsl-tooling-models"))
-    api(libs.futureKotlin("stdlib"))
+    api(projects.core)
+    api(projects.coreApi)
+    api(projects.declarativeDslApi)
+    api(projects.declarativeDslCore)
+    api(projects.declarativeDslEvaluator)
+    api(projects.declarativeDslToolingModels)
+    api(projects.serviceProvider)
+    api(projects.stdlibJavaExtensions)
 
+    api(libs.kotlinStdlib)
+    api(libs.inject)
 
-    implementation(libs.inject)
+    implementation(projects.concurrent)
+    implementation(projects.declarativeDslInternalUtils)
+    implementation(projects.baseServices)
+    implementation(projects.messaging)
+    implementation(projects.resources)
+    implementation(projects.serviceLookup)
+    implementation(libs.guava)
+    implementation(libs.kotlinReflect)
+
     testImplementation(libs.mockitoKotlin2)
 
-    implementation(projects.javaLanguageExtensions)
-    implementation(project(":resources"))
-    implementation(project(":model-core"))
+    integTestImplementation(projects.internalTesting)
+    integTestImplementation(projects.logging)
+    integTestImplementation(testFixtures(projects.declarativeDslProvider))
+    integTestImplementation(testFixtures(projects.toolingApi))
 
-    implementation(libs.guava)
-    implementation(libs.futureKotlin("reflect"))
+    testFixturesImplementation(projects.internalTesting)
+    testFixturesImplementation(projects.internalIntegTesting)
 
-    integTestImplementation(project(":internal-testing"))
-    integTestImplementation(project(":logging"))
-
-    integTestDistributionRuntimeOnly(project(":distributions-full"))
-
-    integTestImplementation(testFixtures(project(":tooling-api")))
+    integTestDistributionRuntimeOnly(projects.distributionsFull)
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

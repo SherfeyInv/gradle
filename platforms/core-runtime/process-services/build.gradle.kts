@@ -4,31 +4,15 @@ plugins {
 
 description = "Process execution abstractions."
 
-gradlebuildJava.usedInWorkers()
-
-errorprone {
-    disabledChecks.addAll(
-        "FutureReturnValueIgnored", // 1 occurrences
-    )
-}
-
 dependencies {
     api(projects.concurrent)
-    api(projects.javaLanguageExtensions)
-    api(project(":base-services"))
-    api(project(":messaging"))
-
+    api(projects.baseServices)
+    api(projects.coreApi)
     api(libs.jsr305)
 
-    implementation(project(":native"))
+    testImplementation(testFixtures(projects.core))
 
-    implementation(libs.slf4jApi)
-    implementation(libs.guava)
-    implementation(libs.nativePlatform)
-
-    testImplementation(testFixtures(project(":core")))
-
-    integTestDistributionRuntimeOnly(project(":distributions-core"))
+    integTestDistributionRuntimeOnly(projects.distributionsCore)
 }
 
 packageCycles {

@@ -38,12 +38,11 @@ import javax.inject.Inject;
  * @implNote Changes to this interface may require changes to the
  * {@link org.gradle.api.internal.artifacts.dsl.dependencies.DependenciesExtensionModule extension module for Groovy DSL} or
  * {@link org.gradle.kotlin.dsl.DependenciesExtensions extension functions for Kotlin DSL}.
- * <p>
- * @see <a href="https://docs.gradle.org/current/userguide/custom_gradle_types.html#custom_dependencies_blocks">Creating custom dependencies blocks.</a>
+ *
+ * @see <a href="https://docs.gradle.org/current/userguide/implementing_gradle_plugins_binary.html#custom_dependencies_blocks">Creating custom dependencies blocks.</a>
  *
  * @since 7.6
  */
-@Incubating
 @SuppressWarnings("JavadocReference")
 public interface Dependencies {
     /**
@@ -145,6 +144,7 @@ public interface Dependencies {
      * @return the new dependency constraint
      * @since 8.7
      */
+    @Incubating
     default Provider<? extends DependencyConstraint> constraint(Provider<? extends MinimalExternalModuleDependency> dependencyConstraint) {
         return dependencyConstraint.map(getDependencyConstraintFactory()::create);
     }
@@ -156,6 +156,7 @@ public interface Dependencies {
      * @return the new dependency constraint
      * @since 8.7
      */
+    @Incubating
     default Provider<? extends DependencyConstraint> constraint(ProviderConvertible<? extends MinimalExternalModuleDependency> dependencyConstraint) {
         return constraint(dependencyConstraint.asProvider());
     }

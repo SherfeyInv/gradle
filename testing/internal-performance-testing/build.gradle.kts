@@ -25,16 +25,16 @@ dependencies {
     reports("jquery:jquery.min:3.5.1@js")
     reports("flot:flot:0.8.1:min@js")
 
-    api(project(":base-services"))
-    api(project(":core"))
-    api(project(":core-api"))
-    api(project(":internal-integ-testing"))
-    api(project(":internal-testing"))
-    api(project(":java-language-extensions"))
-    api(project(":logging"))
-    api(project(":persistent-cache"))
-    api(project(":time"))
-    api(project(":tooling-api"))
+    api(projects.baseServices)
+    api(projects.coreApi)
+    api(projects.internalIntegTesting)
+    api(projects.internalTesting)
+    api(projects.stdlibJavaExtensions)
+    api(projects.logging)
+    api(projects.persistentCache)
+    api(projects.reportRendering)
+    api(projects.time)
+    api(projects.toolingApi)
 
     api(libs.gradleProfiler) {
         because("Consumers need to instantiate BuildMutators")
@@ -49,13 +49,14 @@ dependencies {
     api(libs.junit)
     api(libs.spock)
 
-    implementation(project(":concurrent"))
-    implementation(project(":logging-api"))
-    implementation(project(":wrapper-shared"))
+    implementation(projects.classloaders)
+    implementation(projects.concurrent)
+    implementation(projects.wrapperShared)
 
     implementation(libs.commonsIo)
     implementation(libs.commonsLang)
     implementation(libs.commonsMath)
+    implementation(projects.core)
     implementation(libs.groovyAnt)
     implementation(libs.groovyJson)
     implementation(libs.hikariCP)
@@ -75,7 +76,7 @@ dependencies {
     runtimeOnly(libs.jetty)
     runtimeOnly(libs.mySqlConnector)
 
-    integTestDistributionRuntimeOnly(project(":distributions-core"))
+    integTestDistributionRuntimeOnly(projects.distributionsCore)
 }
 
 val reportResources = tasks.register<Copy>("reportResources") {
@@ -93,4 +94,7 @@ tasks.jar {
         .withPathSensitivity(PathSensitivity.RELATIVE)
 
     from(files(provider{ flamegraph.map { zipTree(it) } }))
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

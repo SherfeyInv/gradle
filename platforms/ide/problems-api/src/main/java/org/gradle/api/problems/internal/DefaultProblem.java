@@ -16,37 +16,46 @@
 
 package org.gradle.api.problems.internal;
 
+import com.google.common.base.Objects;
 import org.gradle.api.NonNullApi;
+import org.gradle.api.problems.AdditionalData;
+import org.gradle.api.problems.ProblemDefinition;
+import org.gradle.api.problems.ProblemLocation;
+import org.gradle.internal.reflect.Instantiator;
+import org.gradle.tooling.internal.provider.serialization.PayloadSerializer;
 
 import javax.annotation.Nullable;
 import java.io.Serializable;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
+
+import static com.google.common.base.Objects.equal;
 
 @NonNullApi
-public class DefaultProblem implements Serializable, Problem {
+public class DefaultProblem implements Serializable, InternalProblem {
     private final ProblemDefinition problemDefinition;
     private final String contextualLabel;
     private final List<String> solutions;
-    private final List<ProblemLocation> problemLocations;
+    private final List<ProblemLocation> originLocations;
+    private final List<ProblemLocation> contextualLocations;
     private final String details;
-    private final RuntimeException exception;
-    private final Map<String, Object> additionalData;
+    private final Throwable exception;
+    private final AdditionalData additionalData;
 
-    protected DefaultProblem(
+    public DefaultProblem(
         ProblemDefinition problemDefinition,
         @Nullable String contextualLabel,
         List<String> solutions,
-        List<ProblemLocation> problemLocations,
+        List<ProblemLocation> originLocations,
+        List<ProblemLocation> contextualLocations,
         @Nullable String details,
-        RuntimeException exception,
-        Map<String, Object> additionalData
+        @Nullable Throwable exception,
+        @Nullable AdditionalData additionalData
     ) {
         this.problemDefinition = problemDefinition;
         this.contextualLabel = contextualLabel;
         this.solutions = solutions;
-        this.problemLocations = problemLocations;
+        this.originLocations = originLocations;
+        this.contextualLocations = contextualLocations;
         this.details = details;
         this.exception = exception;
         this.additionalData = additionalData;
@@ -75,28 +84,30 @@ public class DefaultProblem implements Serializable, Problem {
     }
 
     @Override
-    public List<ProblemLocation> getLocations() {
-        return problemLocations;
+    public List<ProblemLocation> getOriginLocations() {
+        return originLocations;
+    }
+
+    @Override
+    public List<ProblemLocation> getContextualLocations() {
+        return contextualLocations;
     }
 
     @Nullable
     @Override
-    public RuntimeException getException() {
+    public Throwable getException() {
         return exception;
     }
 
     @Override
-    public Map<String, Object> getAdditionalData() {
+    @Nullable
+    public AdditionalData getAdditionalData() {
         return additionalData;
     }
 
     @Override
-    public InternalProblemBuilder toBuilder() {
-        return new DefaultProblemBuilder(this);
-    }
-
-    private static boolean equals(@Nullable Object a, @Nullable Object b) {
-        return (a == b) || (a != null && a.equals(b));
+    public InternalProblemBuilder toBuilder(AdditionalDataBuilderFactory additionalDataBuilderFactory, Instantiator instantiator, PayloadSerializer payloadSerializer) {
+        return new DefaultProblemBuilder(this, additionalDataBuilderFactory, instantiator, payloadSerializer);
     }
 
     @Override
@@ -108,18 +119,31 @@ public class DefaultProblem implements Serializable, Problem {
             return false;
         }
         DefaultProblem that = (DefaultProblem) o;
-        return equals(problemDefinition, that.problemDefinition) &&
-            equals(contextualLabel, that.contextualLabel) &&
-            equals(solutions, that.solutions) &&
-            equals(problemLocations, that.problemLocations) &&
-            equals(details, that.details) &&
-            equals(exception, that.exception) &&
-            equals(additionalData, that.additionalData);
+        return equal(problemDefinition, that.problemDefinition) &&
+            equal(contextualLabel, that.contextualLabel) &&
+            equal(solutions, that.solutions) &&
+            equal(originLocations, that.originLocations) &&
+            equal(details, that.details) &&
+            equal(exception, that.exception) &&
+            equal(additionalData, that.additionalData);
     }
 
     @Override
     public int hashCode() {
-        return Arrays.hashCode(new Object[]{problemDefinition, contextualLabel});
+        return Objects.hashCode(problemDefinition, contextualLabel, solutions, originLocations, details, exception, additionalData);
     }
 
+    @Override
+    public String toString() {
+        return "DefaultProblem{" +
+            "problemDefinition=" + problemDefinition +
+            ", contextualLabel='" + contextualLabel + '\'' +
+            ", solutions=" + solutions +
+            ", originLocations=" + originLocations +
+            ", contextualLocations=" + contextualLocations +
+            ", details='" + details + '\'' +
+            ", exception=" + (exception != null ? exception.toString() : "null") +
+            ", additionalData=" + additionalData +
+            '}';
+    }
 }

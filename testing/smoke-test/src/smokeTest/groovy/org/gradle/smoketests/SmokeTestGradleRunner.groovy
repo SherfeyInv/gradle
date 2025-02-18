@@ -19,6 +19,11 @@ package org.gradle.smoketests
 import org.gradle.integtests.fixtures.BuildOperationTreeFixture
 import org.gradle.integtests.fixtures.BuildOperationTreeQueries
 import org.gradle.integtests.fixtures.configurationcache.ConfigurationCacheBuildOperationsFixture
+import org.gradle.integtests.fixtures.executer.ExecutionResult
+import org.gradle.integtests.fixtures.executer.ExpectedDeprecationWarning
+import org.gradle.integtests.fixtures.executer.IntegrationTestBuildContext
+import org.gradle.integtests.fixtures.executer.OutputScrapingExecutionResult
+import org.gradle.integtests.fixtures.executer.ResultAssertion
 import org.gradle.internal.operations.trace.BuildOperationTrace
 import org.gradle.testkit.runner.BuildResult
 import org.gradle.testkit.runner.BuildTask
@@ -27,6 +32,7 @@ import org.gradle.testkit.runner.InvalidPluginMetadataException
 import org.gradle.testkit.runner.InvalidRunnerConfigurationException
 import org.gradle.testkit.runner.TaskOutcome
 import org.gradle.testkit.runner.internal.DefaultGradleRunner
+import org.gradle.util.GradleVersion
 import org.slf4j.LoggerFactory
 
 import javax.annotation.Nullable
@@ -37,13 +43,26 @@ class SmokeTestGradleRunner extends GradleRunner {
 
     private final DefaultGradleRunner delegate
 
-    private String buildOperationTracePath
     private final List<String> expectedDeprecationWarnings = []
     private final List<String> maybeExpectedDeprecationWarnings = []
     private boolean ignoreDeprecationWarnings
+    private boolean expectStackTraces = false
+    private boolean jdkWarningChecksOn = true
 
-    SmokeTestGradleRunner(DefaultGradleRunner delegate) {
-        this.delegate = delegate
+    SmokeTestGradleRunner(
+        IntegrationTestBuildContext context,
+        List<String> args,
+        List<String> jvmArgs,
+        File projectDir
+    ) {
+        this.delegate = GradleRunner.create() as DefaultGradleRunner
+
+        delegate.withGradleInstallation(context.gradleHomeDir)
+        delegate.withTestKitDir(context.gradleUserHomeDir)
+        delegate.withProjectDir(projectDir)
+        delegate.forwardOutput()
+        delegate.withArguments(args)
+        delegate.withJvmArguments(jvmArgs)
     }
 
     @Override
@@ -62,46 +81,27 @@ class SmokeTestGradleRunner extends GradleRunner {
     }
 
     private SmokeTestBuildResult execute(Function<GradleRunner, BuildResult> action) {
-
-        if (buildOperationTracePath != null) {
-            doEnableBuildOperationTracing()
-        }
+        String buildOperationTracePath = new File(projectDir, "operations").absolutePath
+        doEnableBuildOperationTracing(buildOperationTracePath)
 
         def result = action.apply(delegate)
-
-        // TODO: Use problems API to verify deprecation warnings instead of parsing output.
         verifyDeprecationWarnings(result)
-
-        if (buildOperationTracePath == null) {
-            return new SmokeTestBuildResult(result, null)
-        }
-
         def operations = new BuildOperationTreeFixture(BuildOperationTrace.readPartialTree(buildOperationTracePath))
         new SmokeTestBuildResult(result, operations)
     }
 
-    private void doEnableBuildOperationTracing() {
+    private void doEnableBuildOperationTracing(String buildOperationTracePath) {
         // TODO: Should we filter using the stable/public build operation class names?
         // This means we need to load classes and do an instanceof when we filter
         String buildOperationFilter = [
-            "org.gradle.configurationcache.StoreDetails",
-            "org.gradle.configurationcache.LoadDetails",
+            "org.gradle.configurationcache.WorkGraphStoreDetails",
+            "org.gradle.configurationcache.WorkGraphLoadDetails",
         ].join(BuildOperationTrace.FILTER_SEPARATOR)
 
         delegate.withArguments(delegate.getArguments() + [
             "-D${BuildOperationTrace.SYSPROP}=${buildOperationTracePath}".toString(),
             "-D${BuildOperationTrace.FILTER_SYSPROP}=${buildOperationFilter}".toString()
         ])
-    }
-
-    SmokeTestGradleRunner withBuildOperationTracing(String buildOperationTracePath) {
-        this.buildOperationTracePath = buildOperationTracePath
-        return this
-    }
-
-    SmokeTestGradleRunner withoutBuildOperationTracing() {
-        buildOperationTracePath = null
-        return this
     }
 
     /**
@@ -210,10 +210,24 @@ class SmokeTestGradleRunner extends GradleRunner {
         return this
     }
 
+    SmokeTestGradleRunner ignoreStackTraces(String reason) {
+        LOGGER.warn("Ignoring stack traces because: {}", reason)
+        expectStackTraces = true
+        return this
+    }
+
     SmokeTestGradleRunner ignoreDeprecationWarningsIf(boolean condition, String reason) {
         if (condition) {
             ignoreDeprecationWarnings(reason)
         }
+        return this
+    }
+
+    /**
+     * Disables checks for warnings emitted by the JDK itself. Including illegal access warnings.
+     */
+    SmokeTestGradleRunner withJdkWarningChecksDisabled() {
+        this.jdkWarningChecksOn = false
         return this
     }
 
@@ -236,41 +250,49 @@ class SmokeTestGradleRunner extends GradleRunner {
     }
 
     private void verifyDeprecationWarnings(BuildResult result) {
-        if (ignoreDeprecationWarnings) {
-            return
+        // TODO: Use problems API to verify deprecation warnings instead of parsing output.
+        ExecutionResult execResult = OutputScrapingExecutionResult.from(result.output, "")
+
+        maybeExpectedDeprecationWarnings.add(
+            "Executing Gradle on JVM versions 16 and lower has been deprecated. " +
+                "This will fail with an error in Gradle 9.0. " +
+                "Use JVM 17 or greater to execute Gradle. " +
+                "Projects can continue to use older JVM versions via toolchains. " +
+                "Consult the upgrading guide for further information: " +
+                "https://docs.gradle.org/${GradleVersion.current().version}/userguide/upgrading_version_8.html#minimum_daemon_jvm_version"
+        )
+
+        List<String> deprecationWarningsToCheck = []
+        if (!ignoreDeprecationWarnings) {
+            deprecationWarningsToCheck = expectedDeprecationWarnings
         }
-        def lines = result.output.readLines()
-        def remainingWarnings = new ArrayList<>(expectedDeprecationWarnings + maybeExpectedDeprecationWarnings)
-        def totalExpectedDeprecations = remainingWarnings.size()
-        int foundDeprecations = 0
-        lines.eachWithIndex { String line, int lineIndex ->
-            if (remainingWarnings.remove(line)) {
-                foundDeprecations++
-                return
-            }
-            assert !line.contains("has been deprecated"), "Found an unexpected deprecation warning on line ${lineIndex + 1}: $line"
-        }
-        remainingWarnings.removeAll(maybeExpectedDeprecationWarnings)
-        assert remainingWarnings.empty, "Expected ${totalExpectedDeprecations} deprecation warnings, found ${foundDeprecations} deprecation warnings. Did not match the following:\n${remainingWarnings.collect { " - $it" }.join("\n")}"
+
+        new ResultAssertion(
+            0,
+            deprecationWarningsToCheck.collect { ExpectedDeprecationWarning.withMessage(it) },
+            maybeExpectedDeprecationWarnings.collect { ExpectedDeprecationWarning.withMessage(it) },
+            expectStackTraces,
+            !ignoreDeprecationWarnings,
+            jdkWarningChecksOn
+        ).execute(execResult)
+
         expectedDeprecationWarnings.clear()
+        maybeExpectedDeprecationWarnings.clear()
     }
 
     @Override
     SmokeTestGradleRunner withGradleVersion(String versionNumber) {
-        delegate.withGradleVersion(versionNumber)
-        return this
+        throw new UnsupportedOperationException("Smoke tests should only run against the current Gradle version. Use cross version tests to test other Gradle versions.")
     }
 
     @Override
     SmokeTestGradleRunner withGradleInstallation(File installation) {
-        delegate.withGradleInstallation(installation)
-        return this
+        throw new UnsupportedOperationException("Smoke tests should only run against the current Gradle version. Use cross version tests to test other Gradle versions.")
     }
 
     @Override
     SmokeTestGradleRunner withGradleDistribution(URI distribution) {
-        delegate.withGradleDistribution(distribution)
-        return this
+        throw new UnsupportedOperationException("Smoke tests should only run against the current Gradle version. Use cross version tests to test other Gradle versions.")
     }
 
     @Override
@@ -425,7 +447,7 @@ class SmokeTestGradleRunner extends GradleRunner {
         }
 
         private void assertBuildOperationTracePresent() {
-            assert buildOperationTracePath != null, "Build operation trace was not captured"
+            assert operations != null, "Build operation trace was not captured"
         }
     }
 }

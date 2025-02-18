@@ -44,6 +44,9 @@ trait RunnerFactory {
             def init = AGP_VERSIONS.createAgpNightlyRepositoryInitScript()
             extraArgs += ["-I", init.canonicalPath]
         }
+        if (VersionNumber.parse(agpVersion) < VersionNumber.parse("7.4.0")) {
+            runner.ignoreStackTraces("AGP $agpVersion outputs debug stacktraces")
+        }
         return runner.withArguments([runner.arguments, extraArgs].flatten())
             .ignoreDeprecationWarningsIf(AGP_VERSIONS.isOld(agpVersion), "Old AGP version")
     }
@@ -59,6 +62,5 @@ trait RunnerFactory {
 
         runner(*(tasks + args))
             .ignoreDeprecationWarningsIf(KOTLIN_VERSIONS.isOld(kotlinVersion), "Old KGP version")
-            .forwardOutput()
     }
 }

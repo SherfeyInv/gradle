@@ -1,5 +1,6 @@
 package org.gradle.internal.declarativedsl.analysis
 
+import org.gradle.declarative.dsl.evaluation.OperationGenerationId
 import org.gradle.declarative.dsl.schema.AnalysisSchema
 import org.gradle.declarative.dsl.schema.DataType
 import org.gradle.declarative.dsl.schema.DataTypeRef
@@ -51,6 +52,7 @@ class AnalysisScope(
 
 interface TypeRefContext {
     fun resolveRef(dataTypeRef: DataTypeRef): DataType
+    fun maybeResolveRef(dataTypeRef: DataTypeRef): DataType?
 }
 
 
@@ -63,17 +65,38 @@ interface AnalysisContextView : TypeRefContext {
 
 
 class SchemaTypeRefContext(val schema: AnalysisSchema) : TypeRefContext {
-    override fun resolveRef(dataTypeRef: DataTypeRef): DataType = when (dataTypeRef) {
-        is DataTypeRef.Name -> schema.dataClassesByFqName.getValue(dataTypeRef.fqName)
+    override fun maybeResolveRef(dataTypeRef: DataTypeRef): DataType? =when (dataTypeRef) {
+        is DataTypeRef.Name ->
+            schema.dataClassTypesByFqName[dataTypeRef.fqName]
+
+        is DataTypeRef.NameWithArgs ->
+            schema.genericInstantiationsByFqName[dataTypeRef.fqName]?.get(dataTypeRef.typeArguments)
+
         is DataTypeRef.Type -> dataTypeRef.dataType
     }
+
+    override fun resolveRef(dataTypeRef: DataTypeRef): DataType =
+        maybeResolveRef(dataTypeRef)
+            ?: interpretationFailure("cannot resolve a type reference to '$dataTypeRef'")
+}
+
+
+/**
+ * Represents a unique operation within a particular generation.  The invocation id should be unique within a single
+ * interpretation step, but not across generations (i.e. two operations in different generations may have the same
+ * invocation id).  Operations in different generations with the same invocation id have no relationship to each
+ * other except by coincidence.
+ */
+data class OperationId(val invocationId: Long, val generationId: OperationGenerationId) {
+    override fun toString(): String = "${generationId.ordinal}:$invocationId"
 }
 
 
 class AnalysisContext(
     override val schema: AnalysisSchema,
     override val imports: Map<String, FqName>,
-    val errorCollector: ErrorCollector
+    val errorCollector: ErrorCollector,
+    private val generationId: OperationGenerationId
 ) : AnalysisContextView {
 
     // TODO: thread safety?
@@ -104,13 +127,14 @@ class AnalysisContext(
     val typeRefContext = SchemaTypeRefContext(schema)
 
     override fun resolveRef(dataTypeRef: DataTypeRef): DataType = typeRefContext.resolveRef(dataTypeRef)
+    override fun maybeResolveRef(dataTypeRef: DataTypeRef): DataType? = typeRefContext.maybeResolveRef(dataTypeRef)
 
     fun enterScope(newScope: AnalysisScope) {
         mutableScopes.add(newScope)
     }
 
     fun recordAssignment(resolvedTarget: PropertyReferenceResolution, resolvedRhs: ObjectOrigin, assignmentMethod: AssignmentMethod, originElement: LanguageTreeElement): AssignmentRecord {
-        val result = AssignmentRecord(resolvedTarget, resolvedRhs, nextInstant(), assignmentMethod, originElement)
+        val result = AssignmentRecord(resolvedTarget, resolvedRhs, nextCallId(), assignmentMethod, originElement)
         mutableAssignments.add(result)
         return result
     }
@@ -123,7 +147,7 @@ class AnalysisContext(
         mutableNestedObjectAccess += NestedObjectAccessRecord(container, dataObject)
     }
 
-    fun nextInstant(): Long = nextInstant.incrementAndGet()
+    fun nextCallId(): OperationId = OperationId(nextInstant.incrementAndGet(), generationId)
 
     fun leaveScope(scope: AnalysisScope) {
         check(mutableScopes.last() === scope)

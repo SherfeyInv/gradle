@@ -38,4 +38,5 @@ public interface CalculatedValueFactory {
      * For example, the value might have been restored from the configuration cache.
      */
     <T> CalculatedValue<T> create(DisplayName displayName, T value);
+
 }

@@ -16,6 +16,7 @@
 
 package org.gradle.smoketests
 
+import org.gradle.integtests.fixtures.executer.GradleContextualExecuter
 import org.gradle.util.GradleVersion
 import org.gradle.util.internal.VersionNumber
 import org.junit.Assume
@@ -56,18 +57,17 @@ class GradleVersionsPluginSmokeTest extends AbstractPluginValidatingSmokeTest {
         def runner = runner('dependencyUpdates', '-DoutputFormatter=txt')
             // TODO: com.github.benmanes.gradle.versions.updates.DependencyUpdates plugin triggers dependency resolution at execution time
             .withJvmArguments("-Dorg.gradle.configuration-cache.internal.task-execution-access-pre-stable=true")
-            .forwardOutput()
 
-        def declarationConfiguration = ["compileClasspathCopy", "compileClasspathCopy2", "runtimeClasspathCopy", "runtimeClasspathCopy2", "testCompileClasspathCopy", "testCompileClasspathCopy2", "testRuntimeClasspathCopy", "testRuntimeClasspathCopy2"]
-        declarationConfiguration.each {
-            runner.expectDeprecationWarning(
-                "The $it configuration has been deprecated for dependency declaration. This will fail with an error in Gradle 9.0. Please use another configuration instead. For more information, please refer to https://docs.gradle.org/${GradleVersion.current().version}/userguide/declaring_dependencies.html#sec:deprecated-configurations in the Gradle documentation.",
-                "https://github.com/gradle/gradle/issues/24895"
-            )
-        }
-        runner.expectDeprecationWarning(
-            "The LenientConfiguration.getFirstLevelModuleDependencies(Spec) method has been deprecated. This is scheduled to be removed in Gradle 9.0. Use getFirstLevelModuleDependencies() instead. Consult the upgrading guide for further information: https://docs.gradle.org/${GradleVersion.current().version}/userguide/upgrading_version_8.html#deprecate_filtered_configuration_file_and_filecollection_methods",
-            "https://github.com/ben-manes/gradle-versions-plugin/pull/856"
+        runner
+
+        // with CC, these are reported as config cache problems only
+        runner.expectDeprecationWarningIf(
+            GradleContextualExecuter.isNotConfigCache(),
+            "Invocation of Task.project at execution time has been deprecated. " +
+                "This will fail with an error in Gradle 10.0. " +
+                "This API is incompatible with the configuration cache, which will become the only mode supported by Gradle in a future release. " +
+                "Consult the upgrading guide for further information: https://docs.gradle.org/${GradleVersion.current().version}/userguide/upgrading_version_7.html#task_project",
+            "https://github.com/ben-manes/gradle-versions-plugin/issues/910"
         )
 
         def result = runner.build()

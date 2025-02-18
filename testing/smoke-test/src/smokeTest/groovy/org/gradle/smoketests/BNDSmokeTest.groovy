@@ -17,10 +17,13 @@
 package org.gradle.smoketests
 
 import org.gradle.integtests.fixtures.ToBeFixedForConfigurationCache
+import org.gradle.integtests.fixtures.executer.GradleContextualExecuter
 import org.gradle.test.fixtures.archive.JarTestFixture
 import org.gradle.test.precondition.Requires
 import org.gradle.test.preconditions.UnitTestPreconditions
 import spock.lang.Issue
+
+import static org.gradle.api.internal.DocumentationRegistry.BASE_URL
 
 /**
  * Smoke tests for <a href="https://github.com/bndtools/bnd/blob/master/gradle-plugins/README.md">the BND plugin</a>.
@@ -72,9 +75,7 @@ public class Example {
 """
 
         when:
-        runner("jar")
-            .forwardOutput()
-            .build()
+        runner("jar").build()
 
         then: "version numbers exist in the manifest"
         assertJarManifestContains("Import-Package", "org.apache.commons.lang3;version=\"$calculatedCommonsVersionRange\"")
@@ -154,9 +155,7 @@ public class MyUtil {
 """
 
         when:
-        runner(":jar")
-            .forwardOutput()
-            .build()
+        runner(":jar").build()
 
         then: "version numbers exist in the manifest"
         assertJarManifestContains("Import-Package", "com.example.util;version=\"$calculatedDirectVersionRange\"")
@@ -236,9 +235,7 @@ public class Util {
 """
 
         when:
-        runner("jar")
-                .forwardOutput()
-                .build()
+        runner("jar").build()
 
         then: "version numbers exist in the manifest"
         assertJarManifestContains("Import-Package", "com.example.util;version=\"$calculatedDirectVersionRange\"")
@@ -344,9 +341,7 @@ public class MyUtil {
 """
 
         expect:
-        runner(":resolve")
-                .forwardOutput()
-                .build()
+        runner(":resolve").build()
     }
 
     @ToBeFixedForConfigurationCache(because = "Bndrun task does not support configuration cache")
@@ -416,8 +411,13 @@ Bundle-Activator: com.example.Activator
 
         expect:
         def result = runner(":run")
-                .forwardOutput()
-                .build()
+            .expectDeprecationWarningIf(GradleContextualExecuter.notConfigCache,
+                "Invocation of Task.project at execution time has been deprecated. "+
+                "This will fail with an error in Gradle 10.0. "+
+                "This API is incompatible with the configuration cache, which will become the only mode supported by Gradle in a future release. "+
+                "Consult the upgrading guide for further information: $BASE_URL/userguide/upgrading_version_7.html#task_project",
+                "https://github.com/bndtools/bnd/issues/6346"
+            ).build()
 
         assert result.getOutput().contains("Example project ran.")
     }

@@ -11,48 +11,49 @@ errorprone {
     disabledChecks.addAll(
         "CatchAndPrintStackTrace", // 1 occurrences
         "ImmutableEnumChecker", // 1 occurrences
-        "StringSplitter", // 1 occurrences
     )
 }
 
 dependencies {
-    api(project(":base-services"))
-    api(project(":java-language-extensions"))
-    api(project(":logging"))
-    api(project(":tooling-api"))
+    api(projects.classloaders)
+    api(projects.stdlibJavaExtensions)
+    api(projects.logging)
+    api(projects.toolingApi)
 
     api(libs.jsr305)
 
-    implementation(project(":core-api"))
-    implementation(project(":core"))
-    implementation(project(":file-temp"))
+    implementation(projects.baseServices)
+    implementation(projects.core)
+    implementation(projects.fileTemp)
     implementation(projects.io)
-    implementation(project(":wrapper-shared"))
+    implementation(projects.wrapperShared)
+    implementation(projects.buildProcessServices)
 
     implementation(libs.commonsIo)
 
-    testFixturesImplementation(project(":internal-integ-testing"))
-    testFixturesImplementation(project(":launcher"))
-    testFixturesImplementation(project(":tooling-api"))
-    testFixturesImplementation(project(":wrapper-shared"))
-    testFixturesImplementation(testFixtures(project(":core")))
+    testFixturesImplementation(projects.internalIntegTesting)
+    testFixturesImplementation(projects.launcher)
+    testFixturesImplementation(projects.toolingApi)
+    testFixturesImplementation(projects.wrapperShared)
+    testFixturesImplementation(testFixtures(projects.core))
     testFixturesImplementation(libs.guava)
 
     testImplementation(libs.guava)
-    testImplementation(testFixtures(project(":core")))
+    testImplementation(testFixtures(projects.core))
 
-    integTestImplementation(project(":native"))
-    integTestImplementation(project(":logging"))
-    integTestImplementation(project(":launcher"))
-    integTestImplementation(project(":build-option"))
-    integTestImplementation(project(":jvm-services"))
+    integTestImplementation(projects.native)
+    integTestImplementation(projects.logging)
+    integTestImplementation(projects.launcher)
+    integTestImplementation(projects.buildOption)
+    integTestImplementation(projects.jvmServices)
+    integTestImplementation(testFixtures(projects.buildConfiguration))
     integTestImplementation(libs.slf4jApi)
     integTestImplementation(libs.jetbrainsAnnotations)
 
-    testRuntimeOnly(project(":distributions-core")) {
+    testRuntimeOnly(projects.distributionsCore) {
         because("Tests instantiate DefaultClassLoaderRegistry which requires a 'gradle-plugins.properties' through DefaultPluginModuleRegistry")
     }
-    integTestDistributionRuntimeOnly(project(":distributions-basics"))
+    integTestDistributionRuntimeOnly(projects.distributionsBasics)
 }
 
 val generateTestKitPackageList by tasks.registering(PackageListGenerator::class) {
@@ -73,15 +74,13 @@ tasks.integMultiVersionTest {
     systemProperty("org.gradle.integtest.testkit.compatibility", "all")
 }
 
-// Remove as part of fixing https://github.com/gradle/configuration-cache/issues/585
-tasks.configCacheIntegTest {
-    systemProperties["org.gradle.configuration-cache.internal.test-disable-load-after-store"] = "true"
-}
-
 tasks {
     withType<Test>().configureEach {
         if (project.isBundleGroovy4) {
             exclude("org/gradle/testkit/runner/enduser/GradleRunnerSamplesEndUserIntegrationTest*") // cannot be parameterized for both Groovy 3 and 4
         }
     }
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

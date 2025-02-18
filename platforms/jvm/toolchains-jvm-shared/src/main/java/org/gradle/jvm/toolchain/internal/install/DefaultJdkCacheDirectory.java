@@ -29,17 +29,17 @@ import org.gradle.cache.FileLock;
 import org.gradle.cache.FileLockManager;
 import org.gradle.cache.internal.filelock.DefaultLockOptions;
 import org.gradle.initialization.GradleUserHomeDirProvider;
+import org.gradle.internal.RenderingUtils;
+import org.gradle.internal.jvm.inspection.JavaInstallationCapability;
 import org.gradle.internal.jvm.inspection.JvmInstallationMetadata;
 import org.gradle.internal.jvm.inspection.JvmMetadataDetector;
 import org.gradle.internal.os.OperatingSystem;
 import org.gradle.jvm.toolchain.JavaToolchainSpec;
 import org.gradle.jvm.toolchain.internal.InstallationLocation;
 import org.gradle.jvm.toolchain.internal.JdkCacheDirectory;
-import org.gradle.jvm.toolchain.internal.JvmInstallationMetadataMatcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -84,7 +84,15 @@ public class DefaultJdkCacheDirectory implements JdkCacheDirectory {
     // This is a prerequisite for atomic moves in most cases, which are used in the provisionFromArchive method
     private final GradleUserHomeTemporaryFileProvider temporaryFileProvider;
 
-    @Inject
+    /**
+     * Creates a new JDK cache directory manager.
+     *
+     * @param homeDirProvider provider for the Gradle user home directory information
+     * @param operations file operations
+     * @param lockManager lock manager
+     * @param detector JVM metadata detector, an instance of {@link org.gradle.internal.jvm.inspection.DefaultJvmMetadataDetector} should be passed to avoid logging of any kind
+     * @param temporaryFileProvider temporary file provider
+     */
     public DefaultJdkCacheDirectory(
         GradleUserHomeDirProvider homeDirProvider,
         FileOperations operations,
@@ -152,7 +160,8 @@ public class DefaultJdkCacheDirectory implements JdkCacheDirectory {
                 throw new IOException("Failed to create install parent directory: " + installFolder.getParentFile());
             }
             // Before checking existence, lock the install folder name to prevent concurrent installations
-            try (FileLock ignored = acquireWriteLock(installFolder, "Provisioning JDK from " + uri)) {
+            // An extra string is added to prevent the lock from being created inside the install folder
+            try (FileLock ignored = acquireWriteLock(new File(installFolder.getParentFile(), installFolder.getName() + ".reserved"), "Provisioning JDK from " + uri)) {
                 if (installFolder.exists()) {
                     if (isMarkedLocation(installFolder)) {
                         LOGGER.info("Toolchain from {} already installed at {}", uri, installFolder);
@@ -223,7 +232,7 @@ public class DefaultJdkCacheDirectory implements JdkCacheDirectory {
                 return new UnpackedRoot(subFolder, uncheckedMetadata);
             }
         }
-        throw new IllegalStateException("Unpacked JDK archive does not contain a Java home: " + unpackFolder);
+        throw new IllegalStateException("Unpacked JDK archive does not contain a Java home: " + unpackFolder, uncheckedMetadata.getErrorCause());
     }
 
     private JvmInstallationMetadata getUncheckedMetadata(File root) {
@@ -231,21 +240,35 @@ public class DefaultJdkCacheDirectory implements JdkCacheDirectory {
         return detector.getMetadata(InstallationLocation.autoProvisioned(javaHome, "provisioned toolchain"));
     }
 
+    private static final String JDK_CAPABILITIES_DISPLAY = JavaInstallationCapability.JDK_CAPABILITIES.stream()
+            .map(cap -> "the " + cap.toDisplayName())
+            .collect(RenderingUtils.oxfordJoin("and"));
+
+    /**
+     * Validates that the metadata of the provisioned JDK matches the specification. This also requires {@link JavaInstallationCapability#JDK_CAPABILITIES} to be present.
+     *
+     * @param spec the specification to validate against
+     * @param uri the URI of the JDK archive
+     * @param metadata the metadata of the provisioned JDK
+     */
     private static void validateMetadataMatchesSpec(JavaToolchainSpec spec, URI uri, JvmInstallationMetadata metadata) {
-        if (!new JvmInstallationMetadataMatcher(spec).test(metadata)) {
-            throw new GradleException("Toolchain provisioned from '" + uri + "' doesn't satisfy the specification: " + spec.getDisplayName() + ".");
+        if (!new JvmInstallationMetadataMatcher(spec, JavaInstallationCapability.JDK_CAPABILITIES).test(metadata)) {
+            // Log the metadata for debugging purposes
+            LOGGER.info("Provisioned JDK from '{}' does not satisfy the specification {} with metadata {} and capabilities {}", uri, spec.getDisplayName(), metadata, metadata.getCapabilities());
+            // Make a readable version of the capabilities for the
+            throw new GradleException("Toolchain provisioned from '" + uri + "' doesn't satisfy the specification: " + spec.getDisplayName() + " and must have " + JDK_CAPABILITIES_DISPLAY + ".");
         }
     }
 
-    private static String getInstallFolderName(JvmInstallationMetadata metadata) {
+    public static String getInstallFolderName(JvmInstallationMetadata metadata) {
         String vendor = metadata.getJvmVendor();
         if (vendor == null || vendor.isEmpty()) {
             vendor = metadata.getVendor().getRawVendor();
         }
-        String version = metadata.getLanguageVersion().getMajorVersion();
+        int version = metadata.getJavaMajorVersion();
         String architecture = metadata.getArchitecture();
         String os = OperatingSystem.current().getFamilyName();
-        return String.format("%s-%s-%s-%s", vendor, version, architecture, os)
+        return String.format("%s-%d-%s-%s", vendor, version, architecture, os)
                 .replaceAll("[^a-zA-Z0-9\\-]", "_")
                 .toLowerCase(Locale.ROOT) + ".2";
     }

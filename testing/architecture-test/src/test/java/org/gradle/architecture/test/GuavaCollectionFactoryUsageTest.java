@@ -39,6 +39,14 @@ public class GuavaCollectionFactoryUsageTest {
             .should()
             .callMethod(com.google.common.collect.Lists.class, "newArrayList")
             .orShould()
+            // newArrayListWithExpectedSize is especially bad, as it allocates an array with the given size + 5.
+            .callMethod(com.google.common.collect.Lists.class, "newArrayListWithExpectedSize", int.class)
+            .orShould()
+            // newArrayList(E...) is especially bad, as it allocates an array with the given size + 5.
+            .callMethod(com.google.common.collect.Lists.class, "newArrayList", Object[].class)
+            .orShould()
+            .callMethod(com.google.common.collect.Lists.class, "newArrayListWithCapacity", int.class)
+            .orShould()
             .callMethod(com.google.common.collect.Lists.class, "newCopyOnWriteArrayList")
             .orShould()
             .callMethod(com.google.common.collect.Lists.class, "newLinkedList")

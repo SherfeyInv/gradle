@@ -18,7 +18,6 @@ package org.gradle.api.internal.artifacts.configurations;
 import org.gradle.api.artifacts.ResolutionStrategy;
 import org.gradle.api.internal.artifacts.ComponentSelectionRulesInternal;
 import org.gradle.api.internal.artifacts.DependencySubstitutionInternal;
-import org.gradle.api.internal.artifacts.configurations.dynamicversion.CachePolicy;
 import org.gradle.api.internal.artifacts.dsl.dependencies.DependencyLockingProvider;
 import org.gradle.api.internal.artifacts.ivyservice.dependencysubstitution.DependencySubstitutionsInternal;
 import org.gradle.api.internal.artifacts.ivyservice.resolutionstrategy.CapabilitiesResolutionInternal;
@@ -111,7 +110,7 @@ public interface ResolutionStrategyInternal extends ResolutionStrategy {
 
     boolean isDependencyVerificationEnabled();
 
-    void setReturnAllVariants(boolean returnAllVariants);
+    void setIncludeAllSelectableVariantResults(boolean selectableVariantResults);
 
-    boolean getReturnAllVariants();
+    boolean getIncludeAllSelectableVariantResults();
 }

@@ -20,10 +20,12 @@ import org.gradle.api.internal.file.FileCollectionFactory
 import org.gradle.api.internal.tasks.TaskPropertyUtils
 import org.gradle.api.internal.tasks.properties.GetInputFilesVisitor
 import org.gradle.integtests.fixtures.AbstractIntegrationSpec
-import org.gradle.integtests.fixtures.ToBeFixedForConfigurationCache
+import org.gradle.integtests.fixtures.executer.GradleContextualExecuter
 import org.gradle.internal.properties.bean.PropertyWalker
 import org.gradle.internal.reflect.validation.ValidationMessageChecker
 import spock.lang.Issue
+
+import static org.hamcrest.CoreMatchers.containsString
 
 class TaskInputFilePropertiesIntegrationTest extends AbstractIntegrationSpec implements ValidationMessageChecker {
     def setup() {
@@ -89,7 +91,7 @@ class TaskInputFilePropertiesIntegrationTest extends AbstractIntegrationSpec imp
                     "a Path instance",
                     "a Directory instance",
                     "a RegularFile instance",
-                    "a URI or URL instance",
+                    "a URI or URL instance of file",
                     "a TextResource instance"
                 ).includeLink()
         })
@@ -106,12 +108,12 @@ class TaskInputFilePropertiesIntegrationTest extends AbstractIntegrationSpec imp
                 'Use a Path instance',
                 'Use a Directory instance',
                 'Use a RegularFile instance',
-                'Use a URI or URL instance',
+                'Use a URI or URL instance of file',
                 'Use a TextResource instance',
             ]
-            additionalData == [
-                'typeName' : 'org.gradle.api.DefaultTask',
-                'propertyName' : 'input',
+            additionalData.asMap == [
+                'typeName': 'org.gradle.api.DefaultTask',
+                'propertyName': 'input',
             ]
         }
 
@@ -121,9 +123,8 @@ class TaskInputFilePropertiesIntegrationTest extends AbstractIntegrationSpec imp
         "file" | "file"
     }
 
-    @ToBeFixedForConfigurationCache(because = "multiple build failures")
     def "#annotation.simpleName shows error message when used with complex input"() {
-        buildFile << """
+        buildFile """
             import org.gradle.api.internal.tasks.properties.GetInputFilesVisitor
             import org.gradle.api.internal.tasks.TaskPropertyUtils
             import org.gradle.internal.properties.bean.PropertyWalker
@@ -145,6 +146,10 @@ class TaskInputFilePropertiesIntegrationTest extends AbstractIntegrationSpec imp
 
         expect:
         fails "customTask"
+        if(GradleContextualExecuter.configCache){
+            failure.assertThatDescription(containsString("Task `:customTask` of type `CustomTask`: cannot serialize object of type 'org.gradle.api.DefaultTask', " +
+                "a subtype of 'org.gradle.api.Task', as these are not supported with the configuration cache."))
+        }
         failure.assertHasDescription("A problem was found with the configuration of task ':customTask' (type 'CustomTask').")
         failureDescriptionContains(unsupportedNotation {
             type('CustomTask').property('input')
@@ -157,13 +162,19 @@ class TaskInputFilePropertiesIntegrationTest extends AbstractIntegrationSpec imp
                     "a Path instance",
                     "a Directory instance",
                     "a RegularFile instance",
-                    "a URI or URL instance",
+                    "a URI or URL instance of file",
                     "a TextResource instance"
                 ).includeLink()
         })
 
         and:
-        verifyAll(receivedProblem) {
+        if (GradleContextualExecuter.configCache) {
+            verifyAll(receivedProblem(0)) {
+                fqid == 'validation:configuration-cache:cannot-serialize-object-of-type-org-gradle-api-defaulttask-a-subtype-of-org-gradle-api-task-as-these-are-not-supported-with-the-configuration-cache'
+                contextualLabel == 'cannot serialize object of type \'org.gradle.api.DefaultTask\', a subtype of \'org.gradle.api.Task\', as these are not supported with the configuration cache.'
+            }
+        }
+        verifyAll(receivedProblem(GradleContextualExecuter.configCache ? 1 : 0)) {
             fqid == 'validation:property-validation:unsupported-notation'
             contextualLabel == 'Type \'CustomTask\' property \'input\' has unsupported value \'task \':dependencyTask\'\''
             details == "Type 'DefaultTask' cannot be converted to a $targetType"
@@ -174,12 +185,12 @@ class TaskInputFilePropertiesIntegrationTest extends AbstractIntegrationSpec imp
                 'Use a Path instance',
                 'Use a Directory instance',
                 'Use a RegularFile instance',
-                'Use a URI or URL instance',
+                'Use a URI or URL instance of file',
                 'Use a TextResource instance',
             ]
-            additionalData == [
-                'typeName' : 'CustomTask',
-                'propertyName' : 'input',
+            additionalData.asMap == [
+                'typeName': 'CustomTask',
+                'propertyName': 'input',
             ]
         }
 
@@ -270,9 +281,9 @@ class TaskInputFilePropertiesIntegrationTest extends AbstractIntegrationSpec imp
                 'Assign a value to \'bar\'',
                 'Mark property \'bar\' as optional',
             ]
-            additionalData == [
-                'typeName' : 'FooTask',
-                'propertyName' : 'bar',
+            additionalData.asMap == [
+                'typeName': 'FooTask',
+                'propertyName': 'bar',
             ]
         }
     }

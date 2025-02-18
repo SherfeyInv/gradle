@@ -4,22 +4,23 @@ plugins {
 }
 
 dependencies {
-    testFixturesImplementation(project(":base-services"))
-    testFixturesImplementation(project(":core"))
-    testFixturesImplementation(project(":logging"))
-    testFixturesImplementation(project(":internal-integ-testing"))
-    testFixturesImplementation(project(":jvm-services"))
+    testFixturesImplementation(projects.baseServices)
+    testFixturesImplementation(projects.core)
+    testFixturesImplementation(projects.logging)
+    testFixturesImplementation(projects.internalIntegTesting)
+    testFixturesImplementation(projects.jvmServices)
 
-    testImplementation(testFixtures(project(":kotlin-dsl")))
-    testImplementation(testFixtures(project(":core")))
-    testImplementation(testFixtures(project(":workers")))
-    testImplementation(testFixtures(project(":toolchains-jvm")))
+    testImplementation(testFixtures(projects.kotlinDsl))
+    testImplementation(testFixtures(projects.core))
+    testImplementation(testFixtures(projects.workers))
+    testImplementation(testFixtures(projects.toolchainsJvm))
+    testImplementation(testFixtures(projects.toolchainsJvmShared))
 
-    integTestImplementation(project(":file-watching"))
-    integTestImplementation(project(":jvm-services"))
-    integTestImplementation(project(":launcher"))
-    integTestImplementation(project(":logging"))
-    integTestImplementation(project(":persistent-cache"))
+    integTestImplementation(projects.fileWatching)
+    integTestImplementation(projects.jvmServices)
+    integTestImplementation(projects.launcher)
+    integTestImplementation(projects.logging)
+    integTestImplementation(projects.persistentCache)
     integTestImplementation(libs.commonsCompress)
     integTestImplementation(libs.slf4jApi)
     integTestImplementation(libs.jetty)
@@ -27,11 +28,14 @@ dependencies {
         because("Kotlin soak tests use AssertJ")
     }
 
-    integTestDistributionRuntimeOnly(project(":distributions-full"))
+    integTestDistributionRuntimeOnly(projects.distributionsFull)
 }
 
 tasks.register("soakTest") {
     description = "Run all soak tests defined in the :soak subproject"
     group = "CI Lifecycle"
     dependsOn(":soak:forkingIntegTest")
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

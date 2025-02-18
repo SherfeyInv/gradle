@@ -56,7 +56,7 @@ class GradleBuildDocumentationConfigurationCacheSmokeTest extends AbstractGradle
         result.task(":docs:generateDocInfo").outcome == TaskOutcome.FROM_CACHE
         result.task(":docs:apiMapping").outcome == TaskOutcome.FROM_CACHE
         result.task(":docs:defaultImports").outcome == TaskOutcome.FROM_CACHE
-        result.task(":docs:checkDeadInternalLinks").outcome == TaskOutcome.FROM_CACHE
+        result.task(":docs:checkDeadInternalLinks").outcome == TaskOutcome.SUCCESS
         result.task(":docs:checkstyleApi").outcome == TaskOutcome.FROM_CACHE
         result.task(":docs:incubationReport").outcome == TaskOutcome.FROM_CACHE
     }
@@ -88,5 +88,16 @@ class GradleBuildDocumentationConfigurationCacheSmokeTest extends AbstractGradle
         result.assertConfigurationCacheStateLoaded()
         result.task(":docs:docs").outcome == TaskOutcome.SUCCESS
         result.task("':docs:docsTest'").outcome == TaskOutcome.SUCCESS
+    }
+
+    def "can resolve classpath for :docs:embeddedCrossVersionTest with configuration cache enabled"() {
+        given:
+        def tasks = [":docs:embeddedCrossVersionTest", "--dry-run"]
+
+        when:
+        configurationCacheRun(tasks)
+
+        then:
+        result.assertConfigurationCacheStateStored()
     }
 }

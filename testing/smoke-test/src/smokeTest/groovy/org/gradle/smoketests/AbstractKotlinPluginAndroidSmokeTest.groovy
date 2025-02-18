@@ -16,7 +16,7 @@
 
 package org.gradle.smoketests
 
-import com.gradle.develocity.testing.annotations.LocalOnly
+import org.gradle.testdistribution.LocalOnly
 import org.gradle.integtests.fixtures.android.AndroidHome
 import org.gradle.test.fixtures.dsl.GradleDsl
 import org.gradle.util.internal.VersionNumber
@@ -54,7 +54,11 @@ abstract class AbstractKotlinPluginAndroidSmokeTest extends AbstractSmokeTest im
         def kotlinPluginVersionNumber = VersionNumber.parse(kotlinPluginVersion)
 
         when:
-        def result = mixedRunner(parallel, androidPluginVersion, kotlinPluginVersionNumber, 'clean', ":app:testDebugUnitTestCoverage").build()
+        def result = mixedRunner(parallel, androidPluginVersion, kotlinPluginVersionNumber, 'clean', ":app:testDebugUnitTestCoverage")
+            .deprecations(AndroidDeprecations) {
+                expectIsPropertyDeprecationWarnings()
+            }
+            .build()
 
         then:
         result.task(':app:testDebugUnitTestCoverage').outcome == SUCCESS

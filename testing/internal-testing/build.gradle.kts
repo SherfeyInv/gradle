@@ -12,11 +12,11 @@ sourceSets {
 }
 
 dependencies {
-    api(project(":base-services"))
-    api(project(":concurrent"))
-    api(project(":hashing"))
-    api(project(":java-language-extensions"))
-    api(project(":native"))
+    api(projects.baseServices)
+    api(projects.concurrent)
+    api(projects.hashing)
+    api(projects.serviceLookup)
+    api(projects.stdlibJavaExtensions)
 
     api(libs.groovy)
     api(libs.groovyXml)
@@ -27,9 +27,11 @@ dependencies {
     api(libs.spock)
     api(libs.spockJUnit4)
 
-    implementation(project(":build-operations"))
-    implementation(project(":functional"))
-    implementation(project(":serialization"))
+    implementation(projects.baseAsm)
+    implementation(projects.buildOperations)
+    implementation(projects.functional)
+    implementation(projects.native)
+    implementation(projects.serialization)
 
     implementation(libs.ant)
     implementation(libs.asm)
@@ -39,8 +41,12 @@ dependencies {
     implementation(libs.guava)
     implementation(libs.jsoup)
     implementation(libs.jsr305)
+    implementation(libs.kotlinCompilerEmbeddable)
     implementation(libs.slf4jApi)
     implementation(libs.testcontainers)
+    implementation(libs.dockerJavaApi)
+
+    compileOnly(libs.kotlinStdlib)
 
     runtimeOnly(libs.groovyJson)
     runtimeOnly(libs.bytebuddy)

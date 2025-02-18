@@ -11,35 +11,40 @@ errorprone {
 }
 
 dependencies {
-    api(projects.javaLanguageExtensions)
-    api(project(":base-services"))
-    api(project(":core"))
-    api(project(":core-api"))
-    api(project(":files"))
-    api(project(":hashing"))
-    api(project(":language-java"))
-    api(project(":language-jvm"))
-    api(project(":logging-api"))
-    api(project(":model-core"))
-    api(project(":platform-base"))
-    api(project(":platform-jvm"))
-    api(project(":toolchains-jvm"))
-    api(project(":toolchains-jvm-shared"))
-    api(project(":workers"))
+    api(projects.baseServices)
+    api(projects.buildProcessServices)
+    api(projects.classloaders)
+    api(projects.core)
+    api(projects.coreApi)
+    api(projects.fileOperations)
+    api(projects.files)
+    api(projects.hashing)
+    api(projects.languageJava)
+    api(projects.languageJvm)
+    api(projects.loggingApi)
+    api(projects.modelCore)
+    api(projects.platformBase)
+    api(projects.platformJvm)
+    api(projects.stdlibJavaExtensions)
+    api(projects.toolchainsJvm)
+    api(projects.toolchainsJvmShared)
+    api(projects.workers)
 
     api(libs.groovy)
     api(libs.inject)
     api(libs.jsr305)
 
     implementation(projects.time)
-    implementation(project(":dependency-management"))
-    implementation(project(":file-collections"))
-    implementation(project(":logging"))
-    implementation(project(":persistent-cache"))
-    implementation(project(":plugins-java"))
-    implementation(project(":plugins-java-base"))
-    implementation(project(":reporting"))
-    implementation(project(":worker-processes"))
+    implementation(projects.serviceLookup)
+    implementation(projects.dependencyManagement)
+    implementation(projects.fileCollections)
+    implementation(projects.jvmServices)
+    implementation(projects.logging)
+    implementation(projects.persistentCache)
+    implementation(projects.pluginsJava)
+    implementation(projects.pluginsJavaBase)
+    implementation(projects.reporting)
+    implementation(projects.workerMain)
 
     implementation(libs.guava)
 
@@ -49,24 +54,24 @@ dependencies {
         exclude(module="log4j-api")
     }
 
-    testImplementation(project(":base-services-groovy"))
-    testImplementation(project(":files"))
-    testImplementation(project(":resources"))
+    testImplementation(projects.baseServicesGroovy)
+    testImplementation(projects.files)
+    testImplementation(projects.resources)
     testImplementation(libs.slf4jApi)
     testImplementation(libs.commonsIo)
-    testImplementation(testFixtures(project(":core")))
-    testImplementation(testFixtures(project(":plugins-java")))
-    testImplementation(testFixtures(project(":language-jvm")))
-    testImplementation(testFixtures(project(":language-java")))
+    testImplementation(testFixtures(projects.core))
+    testImplementation(testFixtures(projects.pluginsJava))
+    testImplementation(testFixtures(projects.languageJvm))
+    testImplementation(testFixtures(projects.languageJava))
 
-    integTestImplementation(project(":jvm-services"))
+    integTestImplementation(projects.jvmServices)
 
-    testFixturesImplementation(testFixtures(project(":language-jvm")))
+    testFixturesImplementation(testFixtures(projects.languageJvm))
 
-    testRuntimeOnly(project(":distributions-core")) {
+    testRuntimeOnly(projects.distributionsCore) {
         because("ProjectBuilder tests load services from a Gradle distribution.")
     }
-    integTestDistributionRuntimeOnly(project(":distributions-jvm"))
+    integTestDistributionRuntimeOnly(projects.distributionsJvm)
 }
 
 dependencyAnalysis {
@@ -95,8 +100,6 @@ packageCycles {
 }
 
 integTest.usesJavadocCodeSnippets = true
-
-// Remove as part of fixing https://github.com/gradle/configuration-cache/issues/585
-tasks.configCacheIntegTest {
-    systemProperties["org.gradle.configuration-cache.internal.test-disable-load-after-store"] = "true"
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

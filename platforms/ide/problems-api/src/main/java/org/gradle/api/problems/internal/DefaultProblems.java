@@ -17,49 +17,83 @@
 package org.gradle.api.problems.internal;
 
 import org.gradle.api.problems.ProblemReporter;
+import org.gradle.internal.exception.ExceptionAnalyser;
 import org.gradle.internal.operations.CurrentBuildOperationRef;
+import org.gradle.internal.reflect.Instantiator;
 import org.gradle.internal.service.scopes.Scope;
 import org.gradle.internal.service.scopes.ServiceScope;
+import org.gradle.problems.buildtree.ProblemStream;
+import org.gradle.tooling.internal.provider.serialization.PayloadSerializer;
 
-import java.util.Collections;
-import java.util.List;
+import javax.annotation.Nonnull;
 
 @ServiceScope(Scope.BuildTree.class)
 public class DefaultProblems implements InternalProblems {
 
+    private final ProblemStream problemStream;
     private final CurrentBuildOperationRef currentBuildOperationRef;
-    private final ProblemEmitter emitter;
-    private final List<ProblemTransformer> transformers;
+    private final ProblemSummarizer problemSummarizer;
     private final InternalProblemReporter internalReporter;
+    private final AdditionalDataBuilderFactory additionalDataBuilderFactory = new AdditionalDataBuilderFactory();
+    private final ExceptionProblemRegistry exceptionProblemRegistry;
+    private final ExceptionAnalyser exceptionAnalyser;
+    private final Instantiator instantiator;
+    private final PayloadSerializer payloadSerializer;
 
-    public DefaultProblems(ProblemEmitter emitter, CurrentBuildOperationRef currentBuildOperationRef) {
-        this(emitter, Collections.<ProblemTransformer>emptyList(), currentBuildOperationRef);
-    }
-    public DefaultProblems(ProblemEmitter emitter) {
-        this(emitter, Collections.<ProblemTransformer>emptyList(), CurrentBuildOperationRef.instance());
-    }
-
-    public DefaultProblems(ProblemEmitter emitter, List<ProblemTransformer> transformers, CurrentBuildOperationRef currentBuildOperationRef) {
-        this.emitter = emitter;
-        this.transformers = transformers;
+    public DefaultProblems(
+        ProblemSummarizer problemSummarizer,
+        ProblemStream problemStream,
+        CurrentBuildOperationRef currentBuildOperationRef,
+        ExceptionProblemRegistry exceptionProblemRegistry,
+        ExceptionAnalyser exceptionAnalyser,
+        Instantiator instantiator,
+        PayloadSerializer payloadSerializer
+    ) {
+        this.problemSummarizer = problemSummarizer;
+        this.problemStream = problemStream;
         this.currentBuildOperationRef = currentBuildOperationRef;
-        internalReporter = createReporter(emitter, transformers);
+        this.exceptionProblemRegistry = exceptionProblemRegistry;
+        this.exceptionAnalyser = exceptionAnalyser;
+        this.instantiator = instantiator;
+        this.payloadSerializer = payloadSerializer;
+        this.internalReporter = createReporter();
     }
 
     @Override
-    public ProblemReporter forNamespace(String namespace) {
-        if (DefaultProblemCategory.GRADLE_CORE_NAMESPACE.equals(namespace)) {
-            throw new IllegalStateException("Cannot use " + DefaultProblemCategory.GRADLE_CORE_NAMESPACE + " namespace.");
-        }
-        return createReporter(emitter, transformers);
+    public ProblemReporter getReporter() {
+        return createReporter();
     }
 
-    private DefaultProblemReporter createReporter(ProblemEmitter emitter, List<ProblemTransformer> transformers) {
-        return new DefaultProblemReporter(emitter, transformers, currentBuildOperationRef);
+    @Nonnull
+    private DefaultProblemReporter createReporter() {
+        return new DefaultProblemReporter(
+            problemSummarizer,
+            problemStream,
+            currentBuildOperationRef,
+            additionalDataBuilderFactory,
+            exceptionProblemRegistry,
+            exceptionAnalyser,
+            instantiator,
+            payloadSerializer);
     }
 
     @Override
     public InternalProblemReporter getInternalReporter() {
         return internalReporter;
+    }
+
+    @Override
+    public AdditionalDataBuilderFactory getAdditionalDataBuilderFactory() {
+        return additionalDataBuilderFactory;
+    }
+
+    @Override
+    public Instantiator getInstantiator() {
+        return instantiator;
+    }
+
+    @Override
+    public InternalProblemBuilder getProblemBuilder() {
+        return new DefaultProblemBuilder(problemStream, additionalDataBuilderFactory, instantiator, payloadSerializer);
     }
 }

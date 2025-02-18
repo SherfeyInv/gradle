@@ -20,6 +20,7 @@ import org.gradle.integtests.fixtures.ToBeFixedForConfigurationCache
 import org.gradle.internal.reflect.validation.ValidationMessageChecker
 import org.gradle.test.precondition.Requires
 import org.gradle.test.preconditions.UnitTestPreconditions
+import org.gradle.util.GradleVersion
 import spock.lang.Issue
 
 class NebulaPluginsSmokeTest extends AbstractPluginValidatingSmokeTest implements ValidationMessageChecker {
@@ -47,7 +48,11 @@ class NebulaPluginsSmokeTest extends AbstractPluginValidatingSmokeTest implement
             """
 
         then:
-        runner('build').build()
+        runner('build')
+            .expectDeprecationWarning(
+                "Declaring an 'is-' property with a Boolean type has been deprecated. Starting with Gradle 9.0, this property will be ignored by Gradle. The combination of method name and return type is not consistent with Java Bean property rules and will become unsupported in future versions of Groovy. Add a method named 'getStrictMode' with the same behavior and mark the old one with @Deprecated, or change the type of 'netflix.nebula.dependency.recommender.provider.RecommendationProviderContainer.isStrictMode' (and the setter) to 'boolean'. Consult the upgrading guide for further information: https://docs.gradle.org/${GradleVersion.current().version}/userguide/upgrading_version_8.html#groovy_boolean_properties",
+                "https://github.com/nebula-plugins/nebula-dependency-recommender-plugin/issues/127"
+            ).build()
     }
 
     @Issue('https://plugins.gradle.org/plugin/com.netflix.nebula.plugin-plugin')
@@ -71,12 +76,10 @@ class NebulaPluginsSmokeTest extends AbstractPluginValidatingSmokeTest implement
         """
 
         then:
-        runner('groovydoc', '-s')
-            .build()
+        runner('groovydoc', '-s').build()
     }
 
     @Issue('https://plugins.gradle.org/plugin/nebula.lint')
-    @ToBeFixedForConfigurationCache(because = "Invocation of 'Task.project' by task ':autoLintGradle' at execution time")
     def 'nebula lint plugin'() {
         given:
         buildFile << """
@@ -87,6 +90,8 @@ class NebulaPluginsSmokeTest extends AbstractPluginValidatingSmokeTest implement
             plugins {
                 id "com.netflix.nebula.lint" version "${TestedVersions.nebulaLint}"
             }
+
+            ${mavenCentralRepository()}
 
             apply plugin: 'java'
 
@@ -101,7 +106,7 @@ class NebulaPluginsSmokeTest extends AbstractPluginValidatingSmokeTest implement
         def result = runner('autoLintGradle').build()
 
         then:
-        int numOfRepoBlockLines = 14 + mavenCentralRepository().readLines().size()
+        int numOfRepoBlockLines = 15 + 2 * mavenCentralRepository().readLines().size()
         result.output.contains("parentheses are unnecessary for dependencies")
         result.output.contains("warning   dependency-parentheses")
         result.output.contains("build.gradle:$numOfRepoBlockLines")
@@ -239,11 +244,12 @@ testImplementation('junit:junit:4.7')""")
     Map<String, Versions> getPluginsToValidate() {
         [
             'com.netflix.nebula.dependency-recommender': Versions.of(TestedVersions.nebulaDependencyRecommender),
-            // The plugin-plugin still has validation errors - see https://github.com/nebula-plugins/nebula-plugin-plugin/issues/72
-//            'com.netflix.nebula.plugin-plugin': Versions.of(TestedVersions.nebulaPluginPlugin),
+            'com.netflix.nebula.plugin-plugin': Versions.of(TestedVersions.nebulaPluginPlugin),
             'com.netflix.nebula.lint': Versions.of(TestedVersions.nebulaLint),
             'com.netflix.nebula.dependency-lock': TestedVersions.nebulaDependencyLock,
             'com.netflix.nebula.resolution-rules': Versions.of(TestedVersions.nebulaResolutionRules)
         ]
     }
 }
+
+

@@ -17,22 +17,25 @@
 package org.gradle.integtests.fixtures.daemon
 
 import org.gradle.internal.time.Time
+import org.gradle.launcher.daemon.logging.DaemonMessages
 import org.gradle.launcher.daemon.registry.DaemonRegistry
+import org.gradle.launcher.daemon.server.api.DaemonState
 import org.gradle.util.GradleVersion
 
-import static org.gradle.launcher.daemon.server.api.DaemonStateControl.*
+import java.util.regex.Matcher
+import java.util.regex.Pattern
 
 class TestableDaemon extends AbstractDaemonFixture {
     private final DaemonLogFileStateProbe logFileProbe
     private final DaemonRegistryStateProbe registryProbe
 
-    TestableDaemon(File daemonLog, DaemonRegistry registry, GradleVersion version) {
+    TestableDaemon(DaemonLogFile daemonLog, DaemonRegistry registry, GradleVersion version) {
         super(daemonLog, version)
         this.logFileProbe = new DaemonLogFileStateProbe(daemonLog, context)
         this.registryProbe = new DaemonRegistryStateProbe(registry, context)
     }
 
-    protected void waitForState(State state) {
+    protected void waitForState(DaemonState state) {
         def timer = Time.startCountdownTimer(STATE_CHANGE_TIMEOUT)
         def lastRegistryState = registryProbe.currentState
         def lastLogState = logFileProbe.currentState
@@ -45,7 +48,7 @@ class TestableDaemon extends AbstractDaemonFixture {
             return
         }
         // TODO remove debug log
-        if (lastRegistryState == State.Stopped && lastLogState == State.Idle) {
+        if (lastRegistryState == DaemonState.Stopped && lastLogState == DaemonState.Idle) {
             println("The daemon probably disappeared before it could've printed the stop message. Daemon log content:")
             println(logFile.text)
         }
@@ -55,7 +58,7 @@ Current registry state is ${lastRegistryState} and current log state is ${lastLo
     }
 
     @Override
-    protected void assertHasState(State state) {
+    protected void assertHasState(DaemonState state) {
         assert logFileProbe.currentState == state
         assert registryProbe.currentState == state
     }
@@ -70,16 +73,18 @@ Current registry state is ${lastRegistryState} and current log state is ${lastLo
         registryProbe.resetToken()
     }
 
-    String getLog() {
-        return logFileProbe.log
-    }
-
     @Override
-    File getLogFile() {
-        return logFileProbe.logFile
-    }
-
     int getPort() {
-        return logFileProbe.port
+        Pattern pattern = Pattern.compile("^.*" + DaemonMessages.ADVERTISING_DAEMON + ".*port:(\\d+).*",
+            Pattern.MULTILINE + Pattern.DOTALL);
+
+        Matcher matcher = pattern.matcher(daemonLog.text);
+        assert matcher.matches(): "Unable to find daemon address in the daemon log. Daemon: $context"
+
+        try {
+            return Integer.parseInt(matcher.group(1))
+        } catch (NumberFormatException e) {
+            throw new RuntimeException("Unexpected format of the port number found in the daemon log. Daemon: $context")
+        }
     }
 }

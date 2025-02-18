@@ -4,57 +4,54 @@ plugins {
 
 description = "Adds support for building Groovy projects"
 
-errorprone {
-    disabledChecks.addAll(
-        "ModifyCollectionInEnhancedForLoop", // 1 occurrences
-        "UnusedMethod", // 4 occurrences
-        "UnusedVariable", // 1 occurrences
-    )
-}
-
 dependencies {
-    api(project(":base-services"))
-    api(project(":build-option"))
-    api(project(":core-api"))
-    api(project(":core"))
-    api(project(":files"))
-    api(project(":file-temp"))
-    api(project(":jvm-services"))
-    api(project(":language-java"))
-    api(project(":language-jvm"))
-    api(project(":problems-api"))
-    api(project(":platform-base"))
-    api(project(":toolchains-jvm"))
-    api(project(":toolchains-jvm-shared"))
-    api(project(":workers"))
-    api(project(":worker-processes"))
+    api(projects.serviceProvider)
+    api(projects.baseServices)
+    api(projects.buildOption)
+    api(projects.coreApi)
+    api(projects.core)
+    api(projects.files)
+    api(projects.fileOperations)
+    api(projects.fileTemp)
+    api(projects.jvmServices)
+    api(projects.languageJava)
+    api(projects.languageJvm)
+    api(projects.problemsApi)
+    api(projects.platformBase)
+    api(projects.toolchainsJvm)
+    api(projects.toolchainsJvmShared)
+    api(projects.workers)
+    api(projects.workerMain)
+    api(projects.buildProcessServices)
 
     api(libs.inject)
     api(libs.jsr305)
 
+    implementation(projects.classloaders)
     implementation(projects.concurrent)
-    implementation(projects.javaLanguageExtensions)
-    implementation(project(":file-collections"))
-    implementation(project(":logging"))
-    implementation(project(":logging-api"))
+    implementation(projects.serviceLookup)
+    implementation(projects.stdlibJavaExtensions)
+    implementation(projects.fileCollections)
+    implementation(projects.logging)
+    implementation(projects.loggingApi)
 
     implementation(libs.groovy)
     implementation(libs.guava)
     implementation(libs.asm)
 
-    testImplementation(project(":base-services-groovy"))
-    testImplementation(project(":internal-testing"))
-    testImplementation(project(":resources"))
-    testImplementation(testFixtures(project(":core")))
+    testImplementation(projects.baseServicesGroovy)
+    testImplementation(projects.internalTesting)
+    testImplementation(projects.resources)
+    testImplementation(testFixtures(projects.core))
 
-    testFixturesApi(testFixtures(project(":language-jvm")))
-    testFixturesImplementation(project(":core"))
-    testFixturesImplementation(project(":base-services"))
-    testFixturesImplementation(project(":internal-integ-testing"))
-    testFixturesImplementation(testFixtures(project(":model-core")))
+    testFixturesApi(testFixtures(projects.languageJvm))
+    testFixturesImplementation(projects.core)
+    testFixturesImplementation(projects.baseServices)
+    testFixturesImplementation(projects.internalIntegTesting)
+    testFixturesImplementation(testFixtures(projects.modelReflect))
     testFixturesImplementation(libs.guava)
 
-    integTestImplementation(testFixtures(project(":model-core")))
+    integTestImplementation(testFixtures(projects.modelReflect))
     integTestImplementation(libs.commonsLang)
     integTestImplementation(libs.javaParser) {
         because("The Groovy docs inspects the dependencies at compile time")
@@ -63,13 +60,22 @@ dependencies {
         because("Required for SystemInfo")
     }
 
-    testRuntimeOnly(project(":distributions-core")) {
+    testRuntimeOnly(projects.distributionsCore) {
         because("Tests instantiate DefaultClassLoaderRegistry which requires a 'gradle-plugins.properties' through DefaultPluginModuleRegistry")
     }
-    integTestDistributionRuntimeOnly(project(":distributions-jvm"))
+    integTestDistributionRuntimeOnly(projects.distributionsJvm)
+}
+
+tasks.withType<Test>().configureEach {
+    if (!javaVersion.isJava9Compatible) {
+        classpath += javaLauncher.get().metadata.installationPath.files("lib/tools.jar")
+    }
 }
 
 packageCycles {
     excludePatterns.add("org/gradle/api/internal/tasks/compile/**")
     excludePatterns.add("org/gradle/api/tasks/javadoc/**")
+}
+tasks.isolatedProjectsIntegTest {
+    enabled = false
 }

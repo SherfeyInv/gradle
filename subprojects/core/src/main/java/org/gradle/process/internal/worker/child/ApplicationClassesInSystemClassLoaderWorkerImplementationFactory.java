@@ -22,8 +22,6 @@ import org.gradle.api.internal.ClassPathRegistry;
 import org.gradle.api.internal.file.temp.TemporaryFileProvider;
 import org.gradle.api.logging.LogLevel;
 import org.gradle.internal.io.StreamByteBuffer;
-import org.gradle.internal.nativeintegration.services.NativeServices;
-import org.gradle.internal.nativeintegration.services.NativeServices.NativeServicesMode;
 import org.gradle.internal.process.ArgWriter;
 import org.gradle.internal.remote.Address;
 import org.gradle.internal.remote.internal.inet.MultiChoiceAddress;
@@ -69,6 +67,7 @@ import java.util.stream.Collectors;
  * </pre>
  */
 public class ApplicationClassesInSystemClassLoaderWorkerImplementationFactory {
+    public static final String WORKER_GRADLE_REMAPPING_PREFIX = "worker";
     private final ClassPathRegistry classPathRegistry;
     private final TemporaryFileProvider temporaryFileProvider;
     private final File gradleUserHomeDir;
@@ -99,7 +98,7 @@ public class ApplicationClassesInSystemClassLoaderWorkerImplementationFactory {
         if (runAsModule) {
             execSpec.getMainModule().set("gradle.worker");
         }
-        execSpec.getMainClass().set("worker." + GradleWorkerMain.class.getName());
+        execSpec.getMainClass().set(WORKER_GRADLE_REMAPPING_PREFIX + "." + GradleWorkerMain.class.getName());
         if (useOptionsFile) {
             // Use an options file to pass across application classpath
             File optionsFile = temporaryFileProvider.createTemporaryFile("gradle-worker-classpath", "txt");
@@ -108,7 +107,7 @@ public class ApplicationClassesInSystemClassLoaderWorkerImplementationFactory {
         } else {
             // Use a dummy security manager, which hacks the application classpath into the system ClassLoader
             execSpec.classpath(workerMainClassPath);
-            execSpec.systemProperty("java.security.manager", "worker." + BootstrapSecurityManager.class.getName());
+            execSpec.systemProperty("java.security.manager", WORKER_GRADLE_REMAPPING_PREFIX + "." + BootstrapSecurityManager.class.getName());
         }
 
         // Serialize configuration for the worker process to it stdin
@@ -150,10 +149,6 @@ public class ApplicationClassesInSystemClassLoaderWorkerImplementationFactory {
                 }
             }
 
-            // When not explicitly set, use the value from the daemon process
-            NativeServicesMode nativeServicesMode = processBuilder.getNativeServicesMode() == NativeServicesMode.NOT_SET
-                ? NativeServicesMode.from(NativeServices.getInstance().createNativeCapabilities().useNativeIntegrations())
-                : processBuilder.getNativeServicesMode();
             WorkerConfig config = new WorkerConfig(
                 logLevel,
                 publishProcessInfo,
@@ -162,7 +157,7 @@ public class ApplicationClassesInSystemClassLoaderWorkerImplementationFactory {
                 workerId,
                 displayName,
                 processBuilder.getWorker(),
-                nativeServicesMode
+                processBuilder.getNativeServicesMode()
             );
 
             // Serialize the worker config, this is consumed by SystemApplicationClassLoaderWorker

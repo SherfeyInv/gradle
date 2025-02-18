@@ -16,16 +16,15 @@
 
 package org.gradle.internal.logging.events;
 
-import com.google.common.collect.Lists;
+import com.google.common.collect.ImmutableList;
 import org.apache.commons.lang.BooleanUtils;
 import org.apache.commons.lang.StringUtils;
-import org.gradle.internal.Either;
 
 import java.util.List;
 import java.util.Locale;
 
 public class BooleanQuestionPromptEvent extends PromptOutputEvent {
-    private static final List<String> LENIENT_YES_NO_CHOICES = Lists.newArrayList("yes", "no", "y", "n");
+    private static final List<String> LENIENT_YES_NO_CHOICES = ImmutableList.of("yes", "no", "y", "n");
     private final String question;
     private final boolean defaultValue;
 
@@ -57,15 +56,15 @@ public class BooleanQuestionPromptEvent extends PromptOutputEvent {
     }
 
     @Override
-    public Either<Boolean, String> convert(String text) {
+    public PromptResult<Boolean> convert(String text) {
         if (text.isEmpty()) {
-            return Either.left(defaultValue);
+            return PromptResult.response(defaultValue);
         }
         String trimmed = text.toLowerCase(Locale.US).trim();
         if (LENIENT_YES_NO_CHOICES.contains(trimmed)) {
-            return Either.left(BooleanUtils.toBoolean(trimmed));
+            return PromptResult.response(BooleanUtils.toBoolean(trimmed));
         }
         String defaultString = defaultValue ? "yes" : "no";
-        return Either.right("Please enter 'yes' or 'no' (default: '" + defaultString + "'): ");
+        return PromptResult.newPrompt("Please enter 'yes' or 'no' (default: '" + defaultString + "'): ");
     }
 }

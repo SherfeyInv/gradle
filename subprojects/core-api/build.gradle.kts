@@ -1,36 +1,31 @@
 plugins {
     id("gradlebuild.distribution.api-java")
-    id("gradlebuild.instrumented-project")
 }
 
 description = "Public and internal 'core' Gradle APIs that are required by other subprojects"
 
 errorprone {
     disabledChecks.addAll(
-        "EmptyBlockTag", // 5 occurrences
         "InlineMeSuggester", // 1 occurrences
         "MalformedInlineTag", // 3 occurrences
         "MixedMutabilityReturnType", // 3 occurrences
         "NonApiType", // 1 occurrences
-        "ObjectEqualsForPrimitives", // 2 occurrences
         "ReferenceEquality", // 2 occurrences
         "StringCharset", // 1 occurrences
-        "UnusedMethod", // 1 occurrences
     )
 }
 
 dependencies {
     compileOnly(libs.jetbrainsAnnotations)
 
-    api(project(":process-services"))
-    api(projects.javaLanguageExtensions)
-    api(project(":build-cache-spi"))
-    api(project(":logging-api"))
-    api(project(":base-services"))
-    api(project(":files"))
-    api(project(":resources"))
-    api(project(":persistent-cache"))
-    api(project(":declarative-dsl-api"))
+    api(projects.stdlibJavaExtensions)
+    api(projects.buildCacheSpi)
+    api(projects.loggingApi)
+    api(projects.baseServices)
+    api(projects.files)
+    api(projects.resources)
+    api(projects.persistentCache)
+    api(projects.declarativeDslApi)
     api(libs.jsr305)
     api(libs.groovy)
     api(libs.groovyAnt)
@@ -39,21 +34,22 @@ dependencies {
     api(libs.inject)
 
     implementation(projects.io)
-    implementation(project(":base-services-groovy"))
-    implementation(project(":logging"))
+    implementation(projects.baseServicesGroovy)
+    implementation(projects.logging)
+    implementation(projects.buildProcessServices)
     implementation(libs.commonsLang)
     implementation(libs.slf4jApi)
 
-    runtimeOnly(libs.futureKotlin("reflect"))
+    runtimeOnly(libs.kotlinReflect)
 
     testImplementation(libs.asm)
     testImplementation(libs.asmCommons)
-    testImplementation(testFixtures(project(":core")))
-    testImplementation(testFixtures(project(":logging")))
+    testImplementation(testFixtures(projects.core))
+    testImplementation(testFixtures(projects.logging))
 
-    testFixturesImplementation(project(":base-services"))
+    testFixturesImplementation(projects.baseServices)
 
-    integTestDistributionRuntimeOnly(project(":distributions-basics"))
+    integTestDistributionRuntimeOnly(projects.distributionsBasics)
 }
 
 packageCycles {
@@ -66,3 +62,6 @@ strictCompile {
 
 integTest.usesJavadocCodeSnippets = true
 testFilesCleanup.reportOnly = true
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}

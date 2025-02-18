@@ -17,6 +17,7 @@
 package org.gradle.integtests.tooling.r86
 
 import org.gradle.api.problems.Problems
+import org.gradle.integtests.tooling.fixture.ProblemsApiGroovyScriptUtils
 import org.gradle.integtests.tooling.fixture.TargetGradleVersion
 import org.gradle.integtests.tooling.fixture.ToolingApiSpecification
 import org.gradle.integtests.tooling.fixture.ToolingApiVersion
@@ -32,7 +33,8 @@ import static org.gradle.integtests.fixtures.AvailableJavaHomes.getJdk8
 @ToolingApiVersion(">=8.6")
 class ProblemsServiceModelBuilderCrossVersionTest extends ToolingApiSpecification {
 
-    static String getBuildScriptSampleContent(boolean pre86api, boolean includeAdditionalMetadata, GradleVersion targetVersion) {
+    static String getBuildScriptSampleContent(boolean pre86api, boolean includeAdditionalMetadata, GradleVersion targetVersion, Integer threshold = 1) {
+        def additionalDataCall = includeAdditionalMetadata ? ProblemsApiGroovyScriptUtils.additionalData(targetVersion) : ""
         """
             import org.gradle.tooling.provider.model.ToolingModelBuilderRegistry
             import org.gradle.tooling.provider.model.ToolingModelBuilder
@@ -59,12 +61,14 @@ class ProblemsServiceModelBuilderCrossVersionTest extends ToolingApiSpecificatio
                     return modelName == '${CustomModel.name}'
                 }
                 Object buildAll(String modelName, Project project) {
-                    problemsService.${pre86api ? "create" : "forNamespace(\"org.example.plugin\").reporting"} {
-                        it.${targetVersion < GradleVersion.version("8.8") ? 'label("label").category("testcategory")' : 'id("testcategory", "label")'}
-                            .withException(new RuntimeException("test"))
-                            ${pre86api ? ".undocumented()" : ""}
-                            ${includeAdditionalMetadata ? ".additionalData(\"keyToString\", \"value\")" : ""}
-                    }${pre86api ? ".report()" : ""}
+                    ($threshold).times{
+                        problemsService.${ProblemsApiGroovyScriptUtils.report(targetVersion, 'testCategory', 'label')} {
+                            it.${ProblemsApiGroovyScriptUtils.id(targetVersion, 'testcategory', 'label')}
+                                .withException(new RuntimeException("test"))
+                                ${pre86api ? ".undocumented()" : ""}
+                                ${additionalDataCall}
+                        }${pre86api ? ".report()" : ""}
+                    }
                     return new CustomModel()
                 }
             }

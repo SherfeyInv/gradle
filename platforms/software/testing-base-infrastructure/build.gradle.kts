@@ -9,23 +9,27 @@ description = """Generalized test infrastructure to support executing tests in t
 dependencies {
     api(projects.baseServices)
     api(projects.concurrent)
-    api(projects.javaLanguageExtensions)
-    api(projects.logging)
-    api(projects.loggingApi)
+    api(projects.stdlibJavaExtensions)
+    api(projects.messaging)
     api(projects.serialization)
     api(projects.time)
-    api(projects.workerProcesses)
+    api(projects.workerMain)
 
     api(libs.jsr305)
 
     implementation(projects.io)
-    implementation(projects.messaging)
+    implementation(projects.serviceLookup)
+    implementation(projects.serviceProvider)
+    implementation(projects.serviceRegistryBuilder)
 
     implementation(libs.commonsLang)
     implementation(libs.slf4jApi)
 
+    testImplementation(projects.serviceRegistryImpl)
     testImplementation(libs.commonsIo)
+    testImplementation(testFixtures(projects.time))
     testImplementation(testFixtures(projects.serialization))
+    testImplementation(testFixtures(projects.time))
 
     integTestDistributionRuntimeOnly(projects.distributionsCore)
 }
@@ -35,3 +39,6 @@ packageCycles {
 }
 
 integTest.usesJavadocCodeSnippets = true
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}

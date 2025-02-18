@@ -4,10 +4,13 @@ import org.gradle.declarative.dsl.schema.DataClass
 import org.gradle.declarative.dsl.schema.DataParameter
 import org.gradle.declarative.dsl.schema.DataProperty
 import org.gradle.declarative.dsl.schema.DataType
+import org.gradle.declarative.dsl.schema.EnumClass
 import org.gradle.declarative.dsl.schema.ExternalObjectProviderKey
 import org.gradle.declarative.dsl.schema.FunctionSemantics
 import org.gradle.internal.declarativedsl.analysis.AssignmentMethod
+import org.gradle.internal.declarativedsl.analysis.OperationId
 import org.gradle.internal.declarativedsl.analysis.DataAdditionRecord
+import org.gradle.internal.declarativedsl.analysis.DefaultOperationGenerationId
 import org.gradle.internal.declarativedsl.analysis.ObjectOrigin
 import org.gradle.internal.declarativedsl.analysis.PropertyReferenceResolution
 import org.gradle.internal.declarativedsl.analysis.ResolutionResult
@@ -25,7 +28,7 @@ sealed interface ObjectReflection {
     val objectOrigin: ObjectOrigin
 
     data class DataObjectReflection(
-        val identity: Long,
+        val identity: OperationId,
         override val type: DataClass,
         override val objectOrigin: ObjectOrigin,
         val properties: Map<DataProperty, PropertyValueReflection>,
@@ -38,6 +41,11 @@ sealed interface ObjectReflection {
         override val type: DataType.ConstantType<*>,
         override val objectOrigin: ObjectOrigin.ConstantOrigin,
         val value: Any
+    ) : ObjectReflection
+
+    data class EnumValue(
+        override val type: EnumClass,
+        override val objectOrigin: ObjectOrigin.EnumConstantOrigin
     ) : ObjectReflection
 
     data class External(
@@ -92,13 +100,15 @@ fun reflect(
             objectOrigin.literal.value
         )
 
+        is ObjectOrigin.EnumConstantOrigin -> ObjectReflection.EnumValue(type as EnumClass, objectOrigin)
+
         is ObjectOrigin.External -> ObjectReflection.External(type, objectOrigin)
 
         is ObjectOrigin.NullObjectOrigin -> ObjectReflection.Null(objectOrigin)
 
-        is ObjectOrigin.TopLevelReceiver -> reflectData(0, type as DataClass, objectOrigin, context)
+        is ObjectOrigin.TopLevelReceiver -> reflectData(OperationId(0, DefaultOperationGenerationId.preExisting), type as DataClass, objectOrigin, context)
 
-        is ObjectOrigin.ConfiguringLambdaReceiver -> reflectData(-1L, type as DataClass, objectOrigin, context)
+        is ObjectOrigin.ConfiguringLambdaReceiver -> reflectData(OperationId(-1L, DefaultOperationGenerationId.preExisting), type as DataClass, objectOrigin, context)
 
         is ObjectOrigin.PropertyDefaultValue -> reflectDefaultValue(objectOrigin, context)
         is ObjectOrigin.FunctionInvocationOrigin -> context.functionCall(objectOrigin.invocationId) {
@@ -128,13 +138,15 @@ fun reflect(
                         else -> error("unexpected origin type")
                     }
                 }
+
                 is FunctionSemantics.Builder -> error("can't appear here")
             }
         }
 
         is ObjectOrigin.PropertyReference,
         is ObjectOrigin.FromLocalValue -> error("value origin needed")
-        is ObjectOrigin.CustomConfigureAccessor -> reflectData(-1L, type as DataClass, objectOrigin, context)
+
+        is ObjectOrigin.CustomConfigureAccessor -> reflectData(OperationId(-1L, DefaultOperationGenerationId.preExisting), type as DataClass, objectOrigin, context)
 
         is ObjectOrigin.ImplicitThisReceiver -> reflect(objectOrigin.resolvedTo, context)
         is ObjectOrigin.AddAndConfigureReceiver -> reflect(objectOrigin.receiver, context)
@@ -148,16 +160,18 @@ fun reflectDefaultValue(
 ): ObjectReflection {
     return when (val type = context.typeRefContext.getDataType(objectOrigin)) {
         is DataType.ConstantType<*> -> ObjectReflection.DefaultValue(type, objectOrigin)
-        is DataClass -> reflectData(-1L, type, objectOrigin, context)
+        is DataType.ParameterizedTypeInstance -> ObjectReflection.DefaultValue(type, objectOrigin)
+        is DataClass -> reflectData(OperationId(-1L, DefaultOperationGenerationId.preExisting), type, objectOrigin, context)
+        is EnumClass -> ObjectReflection.DefaultValue(type, objectOrigin)
         is DataType.NullType -> error("Null type can't appear in property types")
         is DataType.UnitType -> error("Unit can't appear in property types")
-        else -> { error("Unhandled data type: ${type.javaClass.simpleName}") }
+        is DataType.TypeVariableUsage -> error("Type variables cannot appear as value types, must be substituted")
     }
 }
 
 
 fun reflectData(
-    identity: Long,
+    identity: OperationId,
     type: DataClass,
     objectOrigin: ObjectOrigin,
     context: ReflectionContext
@@ -195,7 +209,7 @@ class ReflectionContext(
     val resolutionResult: ResolutionResult,
     val trace: AssignmentTrace,
 ) {
-    val additionsByResolvedContainer = resolutionResult.additions.mapNotNull {
+    val additionsByResolvedContainer = (resolutionResult.additionsFromDefaults + resolutionResult.additions).mapNotNull {
         val resolvedContainer = trace.resolver.resolveToObjectOrPropertyReference(it.container)
         val obj = trace.resolver.resolveToObjectOrPropertyReference(it.dataObject)
         if (resolvedContainer is Ok && obj is Ok) {
@@ -205,7 +219,10 @@ class ReflectionContext(
 
     private
     val allReceiversResolved = run {
-        val allReceiverReferences = resolutionResult.additions.map { it.container } +
+        val allReceiverReferences = resolutionResult.additionsFromDefaults.map { it.container } +
+            resolutionResult.assignmentsFromDefaults.map { it.lhs.receiverObject } +
+            resolutionResult.nestedObjectAccessFromDefaults.map { it.dataObject.accessor.access(it.container, it.dataObject) } +
+            resolutionResult.additions.map { it.container } +
             resolutionResult.assignments.map { it.lhs.receiverObject } +
             resolutionResult.nestedObjectAccess.map { it.dataObject.accessor.access(it.container, it.dataObject) }
 
@@ -226,9 +243,9 @@ class ReflectionContext(
             .groupBy(keySelector = { it.first }, valueTransform = { it.second }).mapValues { it.value.distinct() }
     }
 
-    fun functionCall(callId: Long, resolveIfNotResolved: () -> ObjectReflection) =
-        functionCallResults.getOrPut(callId, resolveIfNotResolved)
+    fun functionCall(operationId: OperationId, resolveIfNotResolved: () -> ObjectReflection) =
+        functionCallResults.getOrPut(operationId, resolveIfNotResolved)
 
     private
-    val functionCallResults = mutableMapOf<Long, ObjectReflection>()
+    val functionCallResults = mutableMapOf<OperationId, ObjectReflection>()
 }

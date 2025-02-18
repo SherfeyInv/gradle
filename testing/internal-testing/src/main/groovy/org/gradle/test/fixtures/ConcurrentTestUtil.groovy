@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory
 
 import java.util.concurrent.AbstractExecutorService
 import java.util.concurrent.CopyOnWriteArraySet
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.Condition
@@ -83,17 +84,18 @@ class ConcurrentTestUtil extends ExternalResource {
         def start = monotonicClockMillis()
         Thread.sleep(toMillis(initialDelayInSeconds))
         def expiry = start + toMillis(timeoutInSeconds) // convert to ms
-        long sleepTime = toMillis(pollIntervalInSeconds)
-        while(true) {
+        long sleepTime = Math.max(100, toMillis(pollIntervalInSeconds))
+        while (true) {
             try {
                 assertion()
                 return
             } catch (Throwable t) {
-                if (monotonicClockMillis() > expiry) {
+                def remaining = expiry - monotonicClockMillis()
+                if (remaining <= 0) {
                     throw t
                 }
-                sleepTime = Math.min(250, (long) (sleepTime * 1.2))
-                Thread.sleep(sleepTime)
+                Thread.sleep(Math.min(remaining, sleepTime))
+                sleepTime *= 1.2
             }
         }
     }
@@ -165,6 +167,26 @@ class ConcurrentTestUtil extends ExternalResource {
             TestThread thread = new TestThread(this, lock, cl)
             thread.start()
             return new TestParticipantImpl(this, thread)
+        } finally {
+            lock.unlock()
+        }
+    }
+
+    void startSynchronizedNTimes(int times, Runnable cl) {
+        lock.lock()
+        try {
+            def threadCondition = new CountDownLatch(times)
+            def startCondition = new CountDownLatch(1)
+            times.times {
+                TestThread thread = new TestThread(this, lock, {
+                    threadCondition.countDown()
+                    startCondition.await()
+                    cl.run();
+                })
+                thread.start()
+            }
+            threadCondition.await()
+            startCondition.countDown()
         } finally {
             lock.unlock()
         }
@@ -363,6 +385,17 @@ class TestThread extends Thread {
             lock.unlock()
         }
     }
+}
+
+class SyncStartTestThread extends TestThread {
+//    Condition startCondition
+
+    SyncStartTestThread(ConcurrentTestUtil owner, Lock lock, Condition startCondition, Runnable action) {
+        super(owner, lock,)
+//        this.startCondition = startCondition
+    }
+
+
 }
 
 /**

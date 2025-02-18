@@ -22,7 +22,6 @@ import org.gradle.api.internal.CollectionCallbackActionDecorator;
 import org.gradle.api.internal.DefaultClassPathProvider;
 import org.gradle.api.internal.DefaultClassPathRegistry;
 import org.gradle.api.internal.MutationGuards;
-import org.gradle.api.internal.classpath.DefaultModuleRegistry;
 import org.gradle.api.internal.classpath.ModuleRegistry;
 import org.gradle.api.internal.collections.DefaultDomainObjectCollectionFactory;
 import org.gradle.api.internal.collections.DomainObjectCollectionFactory;
@@ -30,6 +29,7 @@ import org.gradle.api.internal.file.FileCollectionFactory;
 import org.gradle.api.internal.file.FileResolver;
 import org.gradle.api.internal.file.archive.DecompressionCoordinator;
 import org.gradle.api.internal.file.archive.DefaultDecompressionCoordinator;
+import org.gradle.api.internal.file.temp.TemporaryFileProvider;
 import org.gradle.api.internal.project.IsolatedAntBuilder;
 import org.gradle.api.internal.project.antbuilder.DefaultIsolatedAntBuilder;
 import org.gradle.api.internal.provider.DefaultProviderFactory;
@@ -42,16 +42,20 @@ import org.gradle.api.resources.TextResourceFactory;
 import org.gradle.cache.UnscopedCacheBuilderFactory;
 import org.gradle.cache.internal.scopes.DefaultBuildTreeScopedCacheBuilderFactory;
 import org.gradle.cache.scopes.BuildTreeScopedCacheBuilderFactory;
+import org.gradle.initialization.BuildCancellationToken;
 import org.gradle.initialization.LegacyTypesSupport;
 import org.gradle.internal.classloader.ClassLoaderFactory;
 import org.gradle.internal.classpath.ClassPath;
+import org.gradle.internal.concurrent.ExecutorFactory;
 import org.gradle.internal.hash.ClassLoaderHierarchyHasher;
 import org.gradle.internal.hash.FileHasher;
 import org.gradle.internal.hash.HashCode;
 import org.gradle.internal.instantiation.InstantiatorFactory;
 import org.gradle.internal.isolation.IsolatableFactory;
 import org.gradle.internal.reflect.Instantiator;
-import org.gradle.internal.service.DefaultServiceRegistry;
+import org.gradle.internal.service.CloseableServiceRegistry;
+import org.gradle.internal.service.Provides;
+import org.gradle.internal.service.ServiceRegistrationProvider;
 import org.gradle.internal.service.ServiceRegistry;
 import org.gradle.internal.service.ServiceRegistryBuilder;
 import org.gradle.internal.service.scopes.WorkerSharedBuildSessionScopeServices;
@@ -59,6 +63,7 @@ import org.gradle.internal.service.scopes.WorkerSharedGlobalScopeServices;
 import org.gradle.internal.service.scopes.WorkerSharedProjectScopeServices;
 import org.gradle.internal.service.scopes.WorkerSharedUserHomeScopeServices;
 import org.gradle.internal.state.ManagedFactoryRegistry;
+import org.gradle.process.internal.DefaultExecActionFactory;
 import org.gradle.process.internal.ExecFactory;
 import org.gradle.process.internal.worker.RequestHandler;
 import org.gradle.process.internal.worker.request.RequestArgumentSerializers;
@@ -68,7 +73,6 @@ import javax.annotation.Nullable;
 import javax.inject.Inject;
 import java.io.File;
 
-@SuppressWarnings("UnusedMethod")
 public class WorkerDaemonServer implements RequestHandler<TransportableActionExecutionSpec, DefaultWorkResult> {
     private final ServiceRegistry internalServices;
     private final LegacyTypesSupport legacyTypesSupport;
@@ -98,7 +102,7 @@ public class WorkerDaemonServer implements RequestHandler<TransportableActionExe
     @Override
     public DefaultWorkResult run(TransportableActionExecutionSpec spec) {
         try {
-            try (WorkerProjectServices internalServices = new WorkerProjectServices(spec.getBaseDir(), spec.getProjectCacheDir(), this.internalServices)) {
+            try (CloseableServiceRegistry internalServices = WorkerProjectServices.create(this.internalServices, spec.getBaseDir(), spec.getProjectCacheDir())) {
                 RequestHandler<TransportableActionExecutionSpec, DefaultWorkResult> worker = getIsolatedClassloaderWorker(spec.getClassLoaderStructure(), internalServices);
                 return worker.run(spec);
             }
@@ -127,22 +131,25 @@ public class WorkerDaemonServer implements RequestHandler<TransportableActionExe
         return "WorkerDaemonServer{}";
     }
 
-    @SuppressWarnings("unused") // Used by reflection
     private static class WorkerDaemonServices extends WorkerSharedUserHomeScopeServices {
 
         // TODO:configuration-cache - deprecate workers access to ProviderFactory?
+        @Provides
         ProviderFactory createProviderFactory() {
             return new DefaultProviderFactory();
         }
 
+        @Provides
         IsolatableSerializerRegistry createIsolatableSerializerRegistry(ClassLoaderHierarchyHasher classLoaderHierarchyHasher, ManagedFactoryRegistry managedFactoryRegistry) {
             return new IsolatableSerializerRegistry(classLoaderHierarchyHasher, managedFactoryRegistry);
         }
 
+        @Provides
         ActionExecutionSpecFactory createActionExecutionSpecFactory(IsolatableFactory isolatableFactory, IsolatableSerializerRegistry serializerRegistry) {
             return new DefaultActionExecutionSpecFactory(isolatableFactory, serializerRegistry);
         }
 
+        @Provides
         ClassLoaderHierarchyHasher createClassLoaderHierarchyHasher() {
             // Return a dummy implementation of this as creating a real hasher drags ~20 more services
             // along with it, and a hasher isn't actually needed on the worker process side at the moment.
@@ -155,14 +162,17 @@ public class WorkerDaemonServer implements RequestHandler<TransportableActionExe
             };
         }
 
+        @Provides
         DomainObjectCollectionFactory createDomainObjectCollectionFactory(InstantiatorFactory instantiatorFactory, ServiceRegistry services) {
             return new DefaultDomainObjectCollectionFactory(instantiatorFactory, services, CollectionCallbackActionDecorator.NOOP, MutationGuards.identity());
         }
 
-        ClassPathRegistry createClassPathRegistry(DefaultModuleRegistry moduleRegistry) {
+        @Provides
+        ClassPathRegistry createClassPathRegistry(ModuleRegistry moduleRegistry) {
             return new DefaultClassPathRegistry(new DefaultClassPathProvider(moduleRegistry));
         }
 
+        @Provides
         IsolatedAntBuilder createIsolatedAntBuilder(ModuleRegistry moduleRegistry, ClassPathRegistry classPathRegistry, ClassLoaderFactory classLoaderFactory) {
             return new DefaultIsolatedAntBuilder(classPathRegistry, classLoaderFactory, moduleRegistry);
         }
@@ -176,41 +186,63 @@ public class WorkerDaemonServer implements RequestHandler<TransportableActionExe
      * This works around that by recreating the build session scope services for every request.
      */
     @NonNullApi
-    static class WorkerBuildSessionScopeWorkaroundServices {
+    static class WorkerBuildSessionScopeWorkaroundServices implements ServiceRegistrationProvider {
         private final File projectCacheDir;
 
         WorkerBuildSessionScopeWorkaroundServices(File projectCacheDir) {
             this.projectCacheDir = projectCacheDir;
         }
 
+        @Provides
         protected BuildTreeScopedCacheBuilderFactory createBuildTreeScopedCache(UnscopedCacheBuilderFactory unscopedCacheBuilderFactory) {
             return new DefaultBuildTreeScopedCacheBuilderFactory(projectCacheDir, unscopedCacheBuilderFactory);
         }
+
+        @Provides
         protected DecompressionCoordinator createDecompressionCoordinator(BuildTreeScopedCacheBuilderFactory cacheBuilderFactory) {
             return new DefaultDecompressionCoordinator(cacheBuilderFactory);
         }
     }
 
-    static class WorkerProjectServices extends DefaultServiceRegistry {
-        public WorkerProjectServices(File baseDir, File projectCacheDir, ServiceRegistry... parents) {
-            super("worker request services for " + baseDir.getAbsolutePath(), parents);
-            addProvider(new WorkerSharedProjectScopeServices(baseDir));
-            addProvider(new WorkerBuildSessionScopeWorkaroundServices(projectCacheDir));
-        }
+    static class WorkerProjectServices implements ServiceRegistrationProvider {
 
-        protected Instantiator createInstantiator(InstantiatorFactory instantiatorFactory) {
-            return instantiatorFactory.decorateLenient(this);
-        }
-
-        protected ExecFactory createExecFactory(ExecFactory execFactory, FileResolver fileResolver, FileCollectionFactory fileCollectionFactory, Instantiator instantiator, ObjectFactory objectFactory) {
-            return execFactory.forContext()
-                .withFileResolver(fileResolver)
-                .withFileCollectionFactory(fileCollectionFactory)
-                .withInstantiator(instantiator)
-                .withObjectFactory(objectFactory)
+        public static CloseableServiceRegistry create(ServiceRegistry parent, File baseDir, File projectCacheDir) {
+            return ServiceRegistryBuilder.builder()
+                .displayName("worker request services for " + baseDir.getAbsolutePath())
+                .parent(parent)
+                .provider(new WorkerProjectServices())
+                .provider(new WorkerSharedProjectScopeServices(baseDir))
+                .provider(new WorkerBuildSessionScopeWorkaroundServices(projectCacheDir))
                 .build();
         }
 
+        @Provides
+        protected Instantiator createInstantiator(InstantiatorFactory instantiatorFactory, ServiceRegistry workerProjectScopeServices) {
+            return instantiatorFactory.decorateLenient(workerProjectScopeServices);
+        }
+
+        @Provides
+        ExecFactory createExecFactory(
+            FileResolver fileResolver,
+            FileCollectionFactory fileCollectionFactory,
+            Instantiator instantiator,
+            ObjectFactory objectFactory,
+            ExecutorFactory executorFactory,
+            TemporaryFileProvider temporaryFileProvider,
+            BuildCancellationToken buildCancellationToken
+        ) {
+            return DefaultExecActionFactory.of(
+                fileResolver,
+                fileCollectionFactory,
+                instantiator,
+                executorFactory,
+                temporaryFileProvider,
+                buildCancellationToken,
+                objectFactory
+            );
+        }
+
+        @Provides
         protected DefaultResourceHandler.Factory createResourceHandlerFactory() {
             // We use a dummy implementation of this as creating a real resource handler would require us to add
             // an additional jar to the worker runtime startup and a resource handler isn't actually needed in
@@ -235,6 +267,7 @@ public class WorkerDaemonServer implements RequestHandler<TransportableActionExe
             return fileOperations -> resourceHandler;
         }
 
+        @Provides
         FileHasher createFileHasher() {
             // Return a dummy implementation of this as creating a real file hasher drags numerous other services
             // along with it, and a file hasher isn't actually needed on the worker process side at the moment.

@@ -66,9 +66,9 @@ public interface Gradle extends PluginAware, ExtensionAware {
      *
      * This directory is the directory containing the Gradle distribution executing this build.
      * <p>
-     * When using the “Gradle Daemon”, this may not be the same Gradle distribution that the build was started with.
+     * When using the "Gradle Daemon", this may not be the same Gradle distribution that the build was started with.
      * If an existing daemon process is running that is deemed compatible (e.g. has the desired JVM characteristics)
-     * then this daemon may be used instead of starting a new process and it may have been started from a different “gradle home”.
+     * then this daemon may be used instead of starting a new process and it may have been started from a different "gradle home".
      * However, it is guaranteed to be the same version of Gradle. For more information on the Gradle Daemon, please consult the
      * <a href="https://docs.gradle.org/current/userguide/gradle_daemon.html" target="_top">User Manual</a>.
      *
@@ -352,7 +352,9 @@ public interface Gradle extends PluginAware, ExtensionAware {
      * provides with your own implementation, for certain types of events.
      *
      * @param logger The logger to use.
+     * @deprecated Will be removed in Gradle 9. Logging customization through listeners is no longer supported.
      */
+    @Deprecated
     void useLogger(Object logger);
 
     /**

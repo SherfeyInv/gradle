@@ -92,7 +92,7 @@ class TaskParametersIntegrationTest extends AbstractIntegrationSpec implements V
                 @InputFiles FileCollection inputs1
                 @InputFiles FileCollection inputs2
 
-                @OutputDirectory File output = project.buildDir
+                @OutputDirectory File output
 
                 @TaskAction void action() {}
             }
@@ -102,6 +102,7 @@ class TaskParametersIntegrationTest extends AbstractIntegrationSpec implements V
             task test(type: TaskWithTwoFileCollectionInputs) {
                 inputs1 = files("input1.txt", "input2.txt")
                 inputs2 = files("input3.txt")
+                output = layout.buildDirectory.dir("out").get().asFile
             }
         """
 
@@ -705,7 +706,7 @@ task someTask(type: SomeTask) {
                 "Use a $fileType as an input",
                 "Declare the input as a ${getOppositeKind(fileType)} instead",
             ].collect { it.toString() }
-            additionalData == [
+            additionalData.asMap == [
                 'typeName': 'org.gradle.api.DefaultTask',
                 'propertyName': 'input',
             ]
@@ -746,7 +747,7 @@ task someTask(type: SomeTask) {
                 'Configure \'output\' to point to a file, not a directory',
                 'Annotate \'output\' with @OutputDirectory instead of @OutputFiles',
             ]
-            additionalData == [
+            additionalData.asMap == [
                 'typeName' : 'org.gradle.api.DefaultTask',
                 'propertyName' : 'output',
             ]
@@ -783,7 +784,7 @@ task someTask(type: SomeTask) {
             contextualLabel == "Property \'output\' is not writable because \'${outputFile.absolutePath}\' is not a directory"
             details == "Expected \'${outputFile.absolutePath}\' to be a directory but it\'s a file"
             solutions == [ 'Make sure that the \'output\' is configured to a directory' ]
-            additionalData == [
+            additionalData.asMap == [
                 'typeName' : 'org.gradle.api.DefaultTask',
                 'propertyName' : 'output',
             ]
@@ -798,7 +799,7 @@ task someTask(type: SomeTask) {
     def "fileTrees with regular file roots cannot be used as output files"() {
         enableProblemsApiCheck()
         expectReindentedValidationMessage()
-        buildScript """
+        buildFile """
             task myTask {
                 inputs.file file('input.txt')
                 outputs.files(files('build/output.txt').asFileTree).withPropertyName('output')
@@ -826,7 +827,7 @@ task someTask(type: SomeTask) {
             contextualLabel == "Property \'output\' is not writable because \'${outputFile.absolutePath}\' is not a directory"
             details == "Expected the root of the file tree \'${outputFile.absolutePath}\' to be a directory but it\'s a file"
             solutions == [ 'Make sure that the root of the file tree \'output\' is configured to a directory' ]
-            additionalData == [
+            additionalData.asMap == [
                 'typeName' : 'org.gradle.api.DefaultTask',
                 'propertyName' : 'output',
             ]

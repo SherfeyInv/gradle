@@ -10,21 +10,23 @@ This project is separate from testing-base to avoid needing to be Java 6 compati
 """
 
 dependencies {
-    api(projects.javaLanguageExtensions)
-    api(project(":base-services"))
-    api(project(":core-api"))
-    api(project(":model-core"))
-    api(project(":platform-base"))
+    api(projects.stdlibJavaExtensions)
+    api(projects.baseServices)
+    api(projects.coreApi)
+    api(projects.modelCore)
+    api(projects.platformBase)
 
     api(libs.inject)
 
-    testImplementation(testFixtures(project(":base-services")))
-    testImplementation(testFixtures(project(":core")))
-    testImplementation(testFixtures(project(":logging")))
-    testImplementation(testFixtures(project(":messaging")))
-    testImplementation(testFixtures(project(":platform-base")))
+    implementation(libs.commonsLang3)
 
-    testRuntimeOnly(project(":distributions-core")) {
+    testImplementation(testFixtures(projects.baseServices))
+    testImplementation(testFixtures(projects.core))
+    testImplementation(testFixtures(projects.logging))
+    testImplementation(testFixtures(projects.messaging))
+    testImplementation(testFixtures(projects.platformBase))
+
+    testRuntimeOnly(projects.distributionsCore) {
         because("ProjectBuilder tests load services from a Gradle distribution.")
     }
 }

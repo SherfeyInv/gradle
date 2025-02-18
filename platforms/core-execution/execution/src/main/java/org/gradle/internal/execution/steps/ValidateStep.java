@@ -20,9 +20,9 @@ import com.google.common.collect.ImmutableList;
 import org.gradle.api.internal.GeneratedSubclasses;
 import org.gradle.api.problems.Severity;
 import org.gradle.api.problems.internal.GradleCoreProblemGroup;
+import org.gradle.api.problems.internal.InternalProblem;
 import org.gradle.api.problems.internal.InternalProblemReporter;
 import org.gradle.api.problems.internal.InternalProblems;
-import org.gradle.api.problems.internal.Problem;
 import org.gradle.internal.MutableReference;
 import org.gradle.internal.execution.UnitOfWork;
 import org.gradle.internal.execution.WorkValidationContext;
@@ -30,6 +30,8 @@ import org.gradle.internal.execution.WorkValidationException;
 import org.gradle.internal.execution.history.BeforeExecutionState;
 import org.gradle.internal.reflect.validation.TypeValidationContext;
 import org.gradle.internal.reflect.validation.TypeValidationProblemRenderer;
+import org.gradle.internal.service.scopes.Scope;
+import org.gradle.internal.service.scopes.ServiceScope;
 import org.gradle.internal.snapshot.impl.ImplementationSnapshot;
 import org.gradle.internal.snapshot.impl.UnknownImplementationSnapshot;
 import org.gradle.internal.vfs.VirtualFileSystem;
@@ -77,19 +79,19 @@ public class ValidateStep<C extends BeforeExecutionContext, R extends Result> im
 
         InternalProblems problemsService = validationContext.getProblemsService();
         InternalProblemReporter reporter = problemsService.getInternalReporter();
-        List<Problem> problems = validationContext.getProblems();
-        for (Problem problem : problems) {
-            reporter.report(problem);
-        }
+        List<InternalProblem> problems = validationContext.getProblems();
 
-        Map<Severity, ImmutableList<Problem>> problemsMap = problems.stream()
+        Map<Severity, ImmutableList<InternalProblem>> problemsMap = problems.stream()
             .collect(
                 groupingBy(p -> p.getDefinition().getSeverity(),
                     mapping(identity(), toImmutableList())));
-        List<Problem> warnings = problemsMap.getOrDefault(WARNING, ImmutableList.of());
-        List<Problem> errors = problemsMap.getOrDefault(ERROR, ImmutableList.of());
+        List<InternalProblem> warnings = problemsMap.getOrDefault(WARNING, ImmutableList.of());
+        List<InternalProblem> errors = problemsMap.getOrDefault(ERROR, ImmutableList.of());
 
         if (!warnings.isEmpty()) {
+            for (InternalProblem warning : warnings) {
+                reporter.report(warning);
+            }
             warningReporter.recordValidationWarnings(work, warnings);
         }
 
@@ -139,7 +141,6 @@ public class ValidateStep<C extends BeforeExecutionContext, R extends Result> im
             UnknownImplementationSnapshot unknownImplSnapshot = (UnknownImplementationSnapshot) implementation;
             workValidationContext.visitPropertyProblem(problem -> problem
                 .forProperty(propertyName)
-                .typeIsIrrelevantInErrorMessage()
                 .id(TextUtil.screamingSnakeToKebabCase(UNKNOWN_IMPLEMENTATION_NESTED), "Unknown property implementation", GradleCoreProblemGroup.validation().property())
                 .contextualLabel(unknownImplSnapshot.getProblemDescription())
                 .documentedAt(userManual("validation_problems", "implementation_unknown"))
@@ -154,7 +155,6 @@ public class ValidateStep<C extends BeforeExecutionContext, R extends Result> im
         if (implementation instanceof UnknownImplementationSnapshot) {
             UnknownImplementationSnapshot unknownImplSnapshot = (UnknownImplementationSnapshot) implementation;
             workValidationContext.visitPropertyProblem(problem -> problem
-                .typeIsIrrelevantInErrorMessage()
                 .id(TextUtil.screamingSnakeToKebabCase(UNKNOWN_IMPLEMENTATION), "Unknown property implementation", GradleCoreProblemGroup.validation().property())
                 .contextualLabel(descriptionPrefix + work + " " + unknownImplSnapshot.getProblemDescription())
                 .documentedAt(userManual("validation_problems", "implementation_unknown"))
@@ -165,16 +165,19 @@ public class ValidateStep<C extends BeforeExecutionContext, R extends Result> im
         }
     }
 
-    protected void throwValidationException(UnitOfWork work, WorkValidationContext validationContext, Collection<? extends Problem> validationErrors) {
+    protected void throwValidationException(UnitOfWork work, WorkValidationContext validationContext, Collection<? extends InternalProblem> validationErrors) {
         Set<String> uniqueErrors = validationErrors.stream()
             .map(TypeValidationProblemRenderer::renderMinimalInformationAbout)
             .collect(toImmutableSet());
-        throw WorkValidationException.forProblems(uniqueErrors)
+        WorkValidationException workValidationException = WorkValidationException.forProblems(uniqueErrors)
             .withSummaryForContext(work.getDisplayName(), validationContext)
             .get();
+        InternalProblemReporter reporter = validationContext.getProblemsService().getInternalReporter();
+        throw reporter.throwing(workValidationException, validationErrors);
     }
 
+    @ServiceScope(Scope.Global.class)
     public interface ValidationWarningRecorder {
-        void recordValidationWarnings(UnitOfWork work, Collection<? extends Problem> warnings);
+        void recordValidationWarnings(UnitOfWork work, Collection<? extends InternalProblem> warnings);
     }
 }

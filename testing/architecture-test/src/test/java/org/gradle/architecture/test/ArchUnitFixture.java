@@ -74,10 +74,20 @@ import static java.util.stream.Collectors.toSet;
 
 public interface ArchUnitFixture {
     DescribedPredicate<JavaClass> classes_not_written_in_kotlin = resideOutsideOfPackages(
+        "org.gradle.internal.cc..",
         "org.gradle.configurationcache..",
+        "org.gradle.internal.configuration.problems..",
+        "org.gradle.internal.encryption..",
+        "org.gradle.internal.extensions.core..",
+        "org.gradle.internal.extensions.stdlib..",
+        "org.gradle.internal.flow.services..",
+        "org.gradle.internal.serialize.beans..",
+        "org.gradle.internal.serialize.codecs..",
+        "org.gradle.internal.serialize.graph..",
         "org.gradle.kotlin..",
         "org.gradle.internal.declarativedsl..",
-        "org.gradle.declarative.dsl.."
+        "org.gradle.declarative.dsl..",
+        "org.gradle.problems.internal.impl.."
     ).as("classes written in Java or Groovy");
 
     DescribedPredicate<JavaClass> not_synthetic_classes = new DescribedPredicate<JavaClass>("not synthetic classes") {
@@ -109,9 +119,17 @@ public interface ArchUnitFixture {
         return new GradlePublicApi();
     }
 
+    static DescribedPredicate<JavaClass> gradleMaintainedExternalDependency() {
+        return resideInAnyPackage(
+            "net.rubygrapefruit..",
+            "org.gradle.fileevents..")
+            .as("Gradle-maintained external dependency");
+    }
+
     static DescribedPredicate<JavaClass> gradleInternalApi() {
         return resideInAnyPackage("org.gradle..")
             .and(not(gradlePublicApi()))
+            .and(not(gradleMaintainedExternalDependency()))
             .as("Gradle Internal API");
     }
 
@@ -127,6 +145,7 @@ public interface ArchUnitFixture {
     static DescribedPredicate<JavaClass> inGradleInternalApiPackages() {
         return resideInAnyPackage("org.gradle..")
             .and(not(inGradlePublicApiPackages()))
+            .and(not(gradleMaintainedExternalDependency()))
             .and(not(inTestFixturePackages()))
             .as("in Gradle internal API packages");
     }

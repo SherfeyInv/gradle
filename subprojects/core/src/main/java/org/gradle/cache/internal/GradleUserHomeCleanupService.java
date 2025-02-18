@@ -26,9 +26,13 @@ import org.gradle.internal.operations.BuildOperationContext;
 import org.gradle.internal.operations.BuildOperationDescriptor;
 import org.gradle.internal.operations.BuildOperationRunner;
 import org.gradle.internal.operations.CallableBuildOperation;
+import org.gradle.internal.service.scopes.Scope;
+import org.gradle.internal.service.scopes.ServiceScope;
+import org.gradle.internal.versionedcache.UsedGradleVersions;
 
 import java.io.File;
 
+@ServiceScope(Scope.UserHome.class)
 public class GradleUserHomeCleanupService implements Stoppable {
     private final Deleter deleter;
     private final GradleUserHomeDirProvider userHomeDirProvider;
@@ -59,8 +63,8 @@ public class GradleUserHomeCleanupService implements Stoppable {
         boolean wasCleanedUp = execute(
             new VersionSpecificCacheCleanupAction(
                 cacheBaseDir,
-                cacheConfigurations.getReleasedWrappers().getRemoveUnusedEntriesOlderThanAsSupplier(),
-                cacheConfigurations.getSnapshotWrappers().getRemoveUnusedEntriesOlderThanAsSupplier(),
+                cacheConfigurations.getReleasedWrappers().getEntryRetentionTimestampSupplier(),
+                cacheConfigurations.getSnapshotWrappers().getEntryRetentionTimestampSupplier(),
                 deleter,
                 cacheConfigurations.getCleanupFrequency().get()
             )

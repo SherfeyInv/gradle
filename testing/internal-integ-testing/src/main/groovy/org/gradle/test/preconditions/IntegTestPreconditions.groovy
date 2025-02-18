@@ -59,7 +59,6 @@ class IntegTestPreconditions {
         }
     }
 
-
     static final class IsDaemonOrNoDaemonExecutor implements TestPrecondition {
         @Override
         boolean isSatisfied() throws Exception {
@@ -137,25 +136,42 @@ class IntegTestPreconditions {
         }
     }
 
+    /**
+     * A JVM that is not able to run the Gradle daemon is available.
+     */
+    static class UnsupportedDaemonJavaHomeAvailable implements TestPrecondition {
+        @Override
+        boolean isSatisfied() throws Exception {
+            return AvailableJavaHomes.unsupportedDaemonJdk != null
+        }
+    }
+
+    /**
+     * A JVM that can run the Gradle daemon, but will not be able to in the next major version, is available.
+     */
+    static class DeprecatedDaemonJavaHomeAvailable implements TestPrecondition {
+        @Override
+        boolean isSatisfied() throws Exception {
+            return AvailableJavaHomes.deprecatedDaemonJdk != null
+        }
+    }
+
+    /**
+     * A JVM that can run the Gradle daemon, and will continue to be able to in the next major version, is available.
+     */
+    static class NonDeprecatedDaemonJavaHomeAvailable implements TestPrecondition {
+        @Override
+        boolean isSatisfied() throws Exception {
+            return AvailableJavaHomes.nonDeprecatedDaemonJdk != null
+        }
+    }
+
     static class Java7HomeAvailable implements TestPrecondition {
         @Override
         boolean isSatisfied() throws Exception {
             return AvailableJavaHomes.getJdk(
                 JavaVersion.toVersion(7)
             )
-        }
-    }
-
-    /**
-     * A JVM that doesn't support running the current Gradle version is available.
-     */
-    static class UnsupportedJavaHomeAvailable implements TestPrecondition {
-        @Override
-        boolean isSatisfied() throws Exception {
-            return !AvailableJavaHomes.getJdks(
-                JavaVersion.toVersion(6),
-                JavaVersion.toVersion(7)
-            ).empty
         }
     }
 
@@ -300,11 +316,11 @@ class IntegTestPreconditions {
         }
     }
 
-    static class Jdk17FromMultipleVendors implements TestPrecondition {
+    static class DifferentJdksFromMultipleVendors implements TestPrecondition {
         @Override
         boolean isSatisfied() throws Exception {
             return AvailableJavaHomes.getAvailableJvmMetadatas().stream()
-                .filter(metadata -> JavaVersion.VERSION_17 == metadata.languageVersion)
+                .filter { metadata -> !AvailableJavaHomes.isCurrentJavaHome(metadata) }
                 .map {metadata -> metadata.vendor.rawVendor }
                 .distinct()
                 .count() >= 2

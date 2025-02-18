@@ -21,9 +21,12 @@ class KnownProblemIds {
     static void assertIsKnown(ReceivedProblem problem) {
         assert problem != null
         def definition = problem.definition
-        def knownDefinition = KNOWN_DEFINITIONS[problem.definition.id.fqid]
-        assert knownDefinition != null : "Unknown problem id: ${definition.id.fqid}"
-        assert knownDefinition == definition.id.displayName : "Unexpected display name for problem: ${definition.id.fqid}. Expected=${knownDefinition}, actual=${definition.id.displayName}"
+        def knownDefinition = KNOWN_DEFINITIONS.find { it ->
+            def pattern = it.key
+            definition.id.fqid ==~ pattern
+        }?.value
+        assert knownDefinition != null, "Unknown problem id: ${definition.id.fqid}"
+        assert definition.id.displayName == knownDefinition, "Unexpected display name for problem: expected '${knownDefinition}', got '${definition.id.displayName}'"
 
         def groupFqid = groupOf(definition.id.fqid)
         while (groupFqid != null) {
@@ -48,24 +51,37 @@ class KnownProblemIds {
         'compilation' : 'Compilation',
         'deprecation' : 'Deprecation',
         'compilation:java' : 'Java compilation',
+        'plugin-application' : 'Plugin application',
         'task-selection' : 'Task selection',
         'dependency-version-catalog' : 'Version catalog',
         'compilation:groovy-dsl' : 'Groovy DSL script compilation',
         'validation:property-validation' : 'Property validation problems',
         'validation:type-validation' : 'Gradle type validation',
+        'validation:configuration-cache' : 'Configuration cache',
+
+        // dependency resolution failures
+        'dependency-variant-resolution' : 'Dependency variant resolution',
 
         // groups from integration tests
         'generic' : 'Generic'
     ]
 
-    private static final def KNOWN_DEFINITIONS = [
+    /**
+     * This map is used to validate that problems reported have known IDs, and display name.
+     * <p>
+     * Both the key and value is handled as a regular expression if the value is too dynamic.
+     */
+    private static final HashMap<String, String> KNOWN_DEFINITIONS = [
         'problems-api:missing-id' : 'Problem id must be specified',
-        'problems-api:invalid-additional-data' : 'ProblemBuilder.additionalData() only supports values of type String',
+        'problems-api:unsupported-additional-data' : 'Unsupported additional data type',
         'compilation:groovy-dsl:compilation-failed' : 'Groovy DSL script compilation problem',
-        'compilation:java:java-compilation-error' : 'Java compilation error',
-        'compilation:java:java-compilation-failed' : 'Java compilation error',
-        'compilation:java:java-compilation-warning' : 'Java compilation warning',
-        'compilation:java:java-compilation-advice' : 'Java compilation note',
+        // Flexible java compilation categories
+        // The end of the category is matched with a regex, as there are many possible endings (and also changes with JDK versions)
+        // See compiler.java for the full list of diagnostic codes we use as categories (we replace the dots with dashes)
+        'compilation:java:compiler-err-.+' : 'Java compilation error',
+        'compilation:java:compiler-warn-.+' : 'Java compilation warning',
+        'compilation:java:compiler-note-.+' : 'Java compilation note',
+        'compilation:java:initialization-failed': 'Java compilation initialization error',
         'dependency-version-catalog:alias-not-finished' : 'version catalog error',
         'dependency-version-catalog:invalid-dependency-notation' : 'Dependency version catalog problem',
         'dependency-version-catalog:reserved-alias-name' : 'version catalog error',
@@ -77,6 +93,7 @@ class KnownProblemIds {
         'deprecation:buildsrc-script' : 'BuildSrc script has been deprecated.',
         'deprecation:creating-a-configuration-with-a-name-that-starts-with-detachedconfiguration' : 'Creating a configuration with a name that starts with \'detachedConfiguration\' has been deprecated.',
         'deprecation:custom-task-action' : 'Custom Task action has been deprecated.',
+        'deprecation:executing-gradle-on-jvm-versions-and-lower': 'Executing Gradle on JVM versions 16 and lower has been deprecated.',
         'deprecation:missing-java-toolchain-plugin' : 'Using task ValidatePlugins without applying the Java Toolchain plugin.',
         'deprecation:included-build-script' : 'Included build script has been deprecated.',
         'deprecation:included-build-task' : 'Included build task has been deprecated.',
@@ -85,7 +102,12 @@ class KnownProblemIds {
         'deprecation:plugin-script' : 'Plugin script has been deprecated.',
         'deprecation:the-detachedconfiguration-configuration-has-been-deprecated-for-consumption' : 'The detachedConfiguration1 configuration has been deprecated for consumption.',
         'deprecation:configurations-acting-as-both-root-and-variant' : 'Configurations should not act as both a resolution root and a variant simultaneously.',
+        'deprecation:properties-should-be-assigned-using-the-propname-value-syntax-setting-a-property-via-the-gradle-generated-propname-value-or-propname-value-syntax-in-groovy-dsl': 'Properties should be assigned using the \'propName = value\' syntax. Setting a property via the Gradle-generated \'propName value\' or \'propName(value)\' syntax in Groovy DSL has been deprecated.',
         'deprecation:repository-jcenter' : 'The RepositoryHandler.jcenter() method has been deprecated.',
+        'task-selection:no-matches' : 'cannot locate task',
+        'validation:configuration-cache:registration-of-listener-on-gradle-buildfinished-is-unsupported' : 'registration of listener on \'Gradle.buildFinished\' is unsupported',
+        'validation:configuration-cache:invocation-of-task-project-at-execution-time-is-unsupported' : 'invocation of \'Task.project\' at execution time is unsupported.',
+        'plugin-application:target-type-mismatch' : 'Unexpected plugin type',
         'task-selection:ambiguous-matches' : 'Ambiguous matches',
         'task-selection:no-matches' : 'No matches',
         'task-selection:selection-failed' : 'Selection failed',
@@ -118,6 +140,24 @@ class KnownProblemIds {
         'validation:type-validation:ignored-annotations-on-method' : 'Ignored annotations on method',
         'validation:type-validation:invalid-use-of-type-annotation' : 'Incorrect use of type annotation',
         'validation:type-validation:not-cacheable-without-reason' : 'Not cacheable without reason',
+        'validation:configuration-cache:cannot-serialize-object-of-type-org-gradle-api-defaulttask-a-subtype-of-org-gradle-api-task-as-these-are-not-supported-with-the-configuration-cache' : 'cannot serialize object of type \'org.gradle.api.DefaultTask\', a subtype of \'org.gradle.api.Task\', as these are not supported with the configuration cache.',
+
+        // dependency resolution failures
+        'dependency-variant-resolution:configuration-not-compatible' : 'Configuration selected by name is not compatible',
+        'dependency-variant-resolution:configuration-not-consumable' : 'Configuration selected by name is not consumable',
+        'dependency-variant-resolution:configuration-does-not-exist' : 'Configuration selected by name does not exist',
+        'dependency-variant-resolution:ambiguous-variants' : 'Multiple variants exist that would match the request',
+        'dependency-variant-resolution:no-compatible-variants' : 'No variants exist that would match the request',
+        'dependency-variant-resolution:no-variants-with-matching-capabilities' : 'No variants exist with capabilities that would match the request',
+
+        'dependency-variant-resolution:ambiguous-artifact-transform' : 'Multiple artifacts transforms exist that would satisfy the request',
+        'dependency-variant-resolution:no-compatible-artifact' : 'No artifacts exist that would match the request',
+        'dependency-variant-resolution:ambiguous-artifacts' : 'Multiple artifacts exist that would match the request',
+        'dependency-variant-resolution:unknown-artifact-selection-failure' : 'Unknown artifact selection failure',
+
+        'dependency-variant-resolution:incompatible-multiple-nodes' : 'Incompatible nodes of a single component were selected',
+
+        'dependency-variant-resolution:unknown-resolution-failure' : 'Unknown resolution failure',
 
         // integration test problems
         'deprecation:some-indirect-deprecation' : 'Some indirect deprecation has been deprecated.',
@@ -126,7 +166,17 @@ class KnownProblemIds {
         'deprecation:typed-task' : 'Typed task has been deprecated.',
         'generic:deprecation:plugin' : 'DisplayName',
         'generic:type' : 'label',
-        'generic:type1' : 'inner',
-        'generic:type2' : 'outer',
+        'generic:type0': 'This is the heading problem text0',
+        'generic:type1': 'This is the heading problem text1',
+        'generic:type2': 'This is the heading problem text2',
+        'generic:type3': 'This is the heading problem text3',
+        'generic:type4': 'This is the heading problem text4',
+        'generic:type5': 'This is the heading problem text5',
+        'generic:type6': 'This is the heading problem text6',
+        'generic:type7': 'This is the heading problem text7',
+        'generic:type8': 'This is the heading problem text8',
+        'generic:type9': 'This is the heading problem text9',
+        'generic:type11' : 'inner',
+        'generic:type12' : 'outer',
     ]
 }

@@ -2,6 +2,7 @@ package org.gradle.internal.declarativedsl.demo
 
 import org.gradle.declarative.dsl.schema.AnalysisSchema
 import org.gradle.declarative.dsl.schema.DataType
+import org.gradle.internal.declarativedsl.analysis.OperationId
 import org.gradle.internal.declarativedsl.analysis.ResolutionResult
 import org.gradle.internal.declarativedsl.analysis.Resolver
 import org.gradle.internal.declarativedsl.analysis.ref
@@ -108,8 +109,9 @@ fun printResolvedAssignments(result: ResolutionResult) {
 }
 
 
+@Suppress("NestedBlockDepth")
 fun prettyStringFromReflection(objectReflection: ObjectReflection): String {
-    val visitedIdentity = mutableSetOf<Long>()
+    val visitedIdentity = mutableSetOf<OperationId>()
 
     fun StringBuilder.recurse(current: ObjectReflection, depth: Int) {
         fun indent() = "    ".repeat(depth)
@@ -120,8 +122,9 @@ fun prettyStringFromReflection(objectReflection: ObjectReflection): String {
                     "\"${current.value}\""
                 else current.value.toString()
             )
+            is ObjectReflection.EnumValue -> current.objectOrigin.toString()
             is ObjectReflection.DataObjectReflection -> {
-                append(current.type.toString() + (if (current.identity != -1L) "#" + current.identity else "") + " ")
+                append(current.type.toString() + (if (current.identity.invocationId != -1L) "#" + current.identity else "") + " ")
                 if (visitedIdentity.add(current.identity)) {
                     append("{\n")
                     current.properties.forEach {

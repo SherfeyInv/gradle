@@ -21,59 +21,50 @@ plugins {
 
 description = "Adds support for using JVM toolchains in projects"
 
-errorprone {
-    disabledChecks.addAll(
-        "StringCaseLocaleUsage", // 2 occurrences
-    )
-}
-
 dependencies {
-    api(projects.javaLanguageExtensions)
-    api(project(":base-services"))
-    api(project(":build-operations"))
-    api(project(":core"))
-    api(project(":core-api"))
-    api(project(":dependency-management"))
-    api(project(":diagnostics"))
-    api(project(":enterprise-operations"))
-    api(project(":enterprise-logging"))
-    api(project(":file-collections"))
-    api(project(":jvm-services"))
-    api(project(":model-core"))
-    api(project(":persistent-cache"))
-    api(project(":platform-base"))
-    api(project(":platform-jvm"))
-    api(project(":resources"))
-    api(project(":toolchains-jvm-shared"))
+    api(projects.stdlibJavaExtensions)
+    api(projects.serviceProvider)
+    api(projects.baseServices)
+    api(projects.buildOperations)
+    api(projects.core)
+    api(projects.coreApi)
+    api(projects.dependencyManagement)
+    api(projects.enterpriseOperations)
+    api(projects.enterpriseLogging)
+    api(projects.fileOperations)
+    api(projects.jvmServices)
+    api(projects.native)
+    api(projects.persistentCache)
+    api(projects.platformBase)
+    api(projects.processServices)
+    api(projects.resources)
+    api(projects.toolchainsJvmShared)
 
-    api(libs.futureKotlin("stdlib"))
+    api(libs.kotlinStdlib)
     api(libs.inject)
-    api(libs.jsr305)
-    api(libs.nativePlatform) {
-        because("Required for SystemInfo")
-    }
 
-    implementation(project(":logging"))
+    implementation(projects.baseDiagnostics)
+    implementation(projects.fileTemp)
+    implementation(projects.modelCore)
 
-    implementation(libs.commonsIo)
     implementation(libs.guava)
     implementation(libs.slf4jApi)
 
-    testImplementation(testFixtures(project(":core")))
-    testImplementation(testFixtures(project(":logging")))
+    testImplementation(testFixtures(projects.core))
+    testImplementation(testFixtures(projects.logging))
+    testImplementation(testFixtures(projects.toolchainsJvmShared))
 
-    testFixturesImplementation(project(":native"))
-    testFixturesImplementation(project(":internal-integ-testing"))
-    testFixturesImplementation(libs.commonsCompress)
+    testFixturesImplementation(projects.native)
 
-    testRuntimeOnly(project(":distributions-core")) {
+    testRuntimeOnly(projects.distributionsCore) {
         because("Tests instantiate DefaultClassLoaderRegistry which requires a 'gradle-plugins.properties' through DefaultPluginModuleRegistry")
     }
 
     integTestImplementation(libs.slf4jApi)
 
-    integTestDistributionRuntimeOnly(project(":distributions-jvm"))
-    crossVersionTestDistributionRuntimeOnly(project(":distributions-jvm"))
+    integTestDistributionRuntimeOnly(projects.distributionsJvm)
+    crossVersionTestDistributionRuntimeOnly(projects.distributionsJvm)
+    crossVersionTestImplementation(testFixtures(projects.toolchainsJvmShared))
 }
 
 packageCycles {
@@ -82,3 +73,6 @@ packageCycles {
 }
 
 integTest.usesJavadocCodeSnippets.set(true)
+tasks.isolatedProjectsIntegTest {
+    enabled = false
+}
